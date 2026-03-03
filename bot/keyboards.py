@@ -11,6 +11,7 @@ from aiogram.types import ReplyKeyboardMarkup, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
 from bot.i18n import t, SUPPORTED_LANGS, LANG_LABELS
+from bot.utils import challenge_text
 
 
 # ─── Reply keyboards ──────────────────────────────────────────────────────
@@ -65,10 +66,9 @@ def lang_select_kb() -> InlineKeyboardMarkup:
 # ─── Inline answer keyboards ──────────────────────────────────────────────
 
 def yes_no_kb(challenge_id: int, lang: str = "ru") -> InlineKeyboardMarkup:
-    kb = InlineKeyboardBuilder()
-    # Use translated Yes/No if available, fallback to symbols
     yes_texts = {"ru": "✅ Да",  "en": "✅ Yes", "tt": "✅ Әйе"}
     no_texts  = {"ru": "❌ Нет", "en": "❌ No",  "tt": "❌ Юк"}
+    kb = InlineKeyboardBuilder()
     kb.button(text=yes_texts.get(lang, "✅ Да"),  callback_data=f"ans:{challenge_id}:yes")
     kb.button(text=no_texts.get(lang, "❌ Нет"),  callback_data=f"ans:{challenge_id}:no")
     return kb.as_markup()
@@ -90,14 +90,28 @@ def poll_kb(challenge_id: int, options: List[str]) -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
-def challenges_list_kb(challenges, user_participations: set) -> InlineKeyboardMarkup:
+def challenges_list_kb(
+    challenges,
+    user_participations: set,
+    lang: str = "ru",
+) -> InlineKeyboardMarkup:
+    """
+    Список челленджей для пользователя.
+    Slug скрыт — пользователь видит только название.
+    Кнопка выхода показывает имя челленджа чтобы не было сюрпризов.
+    """
     kb = InlineKeyboardBuilder()
     for c in challenges:
         is_in  = c["id"] in user_participations
-        emoji  = "✅" if is_in else "➕"
-        action = "leave" if is_in else "join"
+        title, _ = challenge_text(c, lang)
+        if is_in:
+            label    = t("btn_leave_challenge", lang, title=title)
+            action   = "leave"
+        else:
+            label    = t("btn_join_challenge_list", lang, title=title)
+            action   = "join"
         kb.button(
-            text=f"{emoji} {c['slug']}",
+            text=label,
             callback_data=f"challenge:{action}:{c['id']}",
         )
     kb.adjust(1)
@@ -122,6 +136,7 @@ def admin_challenge_mgmt_kb(challenge_id: int, active: bool, lang: str = "ru") -
     kb.button(text=toggle,                              callback_data=f"adm:ch:toggle:{challenge_id}")
     kb.button(text=t("adm_ch_btn_delete",       lang),  callback_data=f"adm:ch:delete:{challenge_id}")
     kb.button(text=t("adm_ch_btn_stats",        lang),  callback_data=f"adm:ch:stats:{challenge_id}")
+    kb.button(text=t("adm_ch_btn_detail",       lang),  callback_data=f"adm:ch:detail:{challenge_id}")
     kb.button(text=t("adm_ch_btn_translations", lang),  callback_data=f"adm:ch:translations:{challenge_id}")
     kb.button(text=t("btn_nav_back",            lang),  callback_data="adm:challenges")
     kb.adjust(2)
@@ -166,17 +181,15 @@ def confirm_create_kb(lang: str = "ru") -> InlineKeyboardMarkup:
 
 
 def launch_time_kb(lang: str = "ru") -> InlineKeyboardMarkup:
-    """Step 8 of wizard: choose launch time."""
     kb = InlineKeyboardBuilder()
     kb.button(text=t("btn_launch_now",   lang), callback_data="adm:ch:launch:now")
-    kb.button(text=t("adm_wiz_skip",     lang), callback_data="adm:ch:launch:now")  # alias
+    kb.button(text=t("adm_wiz_skip",     lang), callback_data="adm:ch:launch:now")
     kb.button(text=t("btn_cancel",       lang), callback_data="adm:ch:cancel_create")
     kb.adjust(1)
     return kb.as_markup()
 
 
 def edit_field_kb(lang: str = "ru") -> InlineKeyboardMarkup:
-    # Field labels stay in Russian for slug/etc technical names; prompts come from i18n
     fields = [
         ("Slug",         "adm:ch:edit_field:slug"),
         ("Название",     "adm:ch:edit_field:title_ru"),

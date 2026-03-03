@@ -22,7 +22,7 @@ KIND_LABELS: dict[str, dict[str, str]] = {
     "yes_no":    {"ru": "Да / Нет",   "en": "Yes / No",  "tt": "Әйе / Юк"},
     "count":     {"ru": "Число",      "en": "Number",    "tt": "Сан"},
     "scale_1_5": {"ru": "Шкала 1–5",  "en": "Scale 1–5", "tt": "Шкала 1–5"},
-    "poll":      {"ru": "Варианты",   "en": "Options",   "tt": "Варианты"},
+    "poll":      {"ru": "Варианты",   "en": "Options",   "tt": "Вариантлар"},
 }
 
 # ─── String table ──────────────────────────────────────────────────────────
@@ -33,12 +33,12 @@ _S: dict[str, dict[str, str]] = {
     "btn_stats": {
         "ru": "📊 Моя статистика",
         "en": "📊 My Statistics",
-        "tt": "📊 Минем статистика",
+        "tt": "📊 Статистикам",
     },
     "btn_challenges": {
         "ru": "🕌 Челленджи",
         "en": "🕌 Challenges",
-        "tt": "🕌 Чәлленҗлар",
+        "tt": "🕌 Сынаулар",
     },
     "btn_settings": {
         "ru": "⚙️ Настройки",
@@ -53,7 +53,7 @@ _S: dict[str, dict[str, str]] = {
     "btn_location": {
         "ru": "📍 Отправить геолокацию",
         "en": "📍 Send Location",
-        "tt": "📍 Геолокация жибәрү",
+        "tt": "📍 Урынны жибәрү",
     },
     "btn_change_lang": {
         "ru": "🌐 Сменить язык",
@@ -68,9 +68,30 @@ _S: dict[str, dict[str, str]] = {
 
     # ── General ────────────────────────────────────────────────────────────
     "welcome": {
-        "ru": "Ассаляму алейкум, {name}! 🌙\n\nДобро пожаловать в Истикама — трекер исламских привычек.\nВыбери раздел:",
-        "en": "Assalamu alaykum, {name}! 🌙\n\nWelcome to Istiqama — your Islamic habits tracker.\nChoose a section:",
-        "tt": "Әссәламү галәйкем, {name}! 🌙\n\nИстикама — исламик гадәтләр трекерена хуш килдегез.\nБүлек сайлагыз:",
+        "ru": """Ас-саляму алейкум, {name}!
+
+Это бот Istiqama, трекер халяльных привычек, разработанный для развития уммы.
+
+В боте можно присоединиться к различным коллективным и индивидуальным челленджам. Каждый день будут приходить вопросы и в конце периода можно будет увидеть свой прогресс!
+
+Нажми на меню снизу, чтобы увидеть все возможности!""",
+        # "Ассаляму алейкум, {name}! 🌙\n\nДобро пожаловать в Istiqama — трекер исламских привычек.\nВыбери раздел:",
+        "en": """As-salamu alaykum, {name}
+
+This is the Istiqama bot, a halal habit tracker developed for the growth of the ummah.
+
+In the bot, you can join various collective and individual challenges. Every day you will receive questions, and at the end of the period you will be able to see your progress!
+
+Click the menu below to see all the features!""",
+        # "Assalamu alaykum, {name}! 🌙\n\nWelcome to Istiqama — your Islamic habits tracker.\nChoose a section:",
+        "tt": """Әс-сәламү галәйкүм, [исем]
+
+Бу — Istiqama боты, өммәтне үстерү өчен эшләнгән хәләл гадәтләр трекеры.
+
+Ботта син төрле коллектив һәм шәхси сынауларга кушыла аласың. Һәр көн сораулар киләчәк, ә чор ахырында үз прогрессыңны күрә алачаксыз!
+
+Барлык мөмкинлекләрне күрү өчен астагы менюга басыгыз!""",
+        # "Әссәламү галәйкүм, {name}! 🌙\n\nIstiqama — мөселман гадәтләре трекерена хуш килдегез.\nБүлек сайлагыз:",
     },
     "main_menu_prompt": {
         "ru": "Главное меню:",
@@ -78,14 +99,14 @@ _S: dict[str, dict[str, str]] = {
         "tt": "Төп меню:",
     },
     "start_first": {
-        "ru": "Сначала отправь /start",
+        "ru": "Сначала отправьте /start",
         "en": "Please send /start first",
-        "tt": "Башта /start языгыз",
+        "tt": "Башта /start дип языгыз",
     },
 
     # ── Statistics ─────────────────────────────────────────────────────────
     "stats_header": {
-        "ru": "📊 *Твоя статистика за 7 дней:*\n",
+        "ru": "📊 *Ваша статистика за 7 дней:*\n",
         "en": "📊 *Your stats for the last 7 days:*\n",
         "tt": "📊 *Соңгы 7 көн статистикасы:*\n",
     },
@@ -99,44 +120,239 @@ _S: dict[str, dict[str, str]] = {
         "en": "No responses in the last 7 days.",
         "tt": "Соңгы 7 көндә җаваплар юк.",
     },
+    
+    # ── Заголовок детальной статистики ────────────────────────────────────
+    "stats_detail_header": {
+        "ru": "📊 *Моя статистика*\n",
+        "en": "📊 *My Statistics*\n",
+        "tt": "📊 *Минем статистика*\n",
+    },
+    "stats_no_active": {
+        "ru": "У тебя нет активных участий в челленджах.",
+        "en": "You are not participating in any challenges.",
+        "tt": "Сезнең актив чәлленҗләрегез юк.",
+    },
+    "stats_no_answers_yet": {
+        "ru": "_Ответов пока нет_",
+        "en": "_No answers yet_",
+        "tt": "_Җаваплар юк әле_",
+    },
+
+    # ── yes_no ────────────────────────────────────────────────────────────
+    "stats_yesno_block": {
+        "ru": (
+            "✅ *{title}* _(да/нет)_\n"
+            "За неделю: {yes_7}/{days_7} дней ✅\n"
+            "За всё время: {yes_all}/{total_days} дней ✅ ({pct_all}%)\n"
+            "Серия сейчас: {cur_streak} 🔥 | Рекорд: {max_streak} 🏆"
+        ),
+        "en": (
+            "✅ *{title}* _(yes/no)_\n"
+            "This week: {yes_7}/{days_7} days ✅\n"
+            "All time: {yes_all}/{total_days} days ✅ ({pct_all}%)\n"
+            "Current streak: {cur_streak} 🔥 | Record: {max_streak} 🏆"
+        ),
+        "tt": (
+            "✅ *{title}* _(әйе/юк)_\n"
+            "Атна: {yes_7}/{days_7} көн ✅\n"
+            "Барлыгы: {yes_all}/{total_days} көн ✅ ({pct_all}%)\n"
+            "Хәзерге серия: {cur_streak} 🔥 | Рекорд: {max_streak} 🏆"
+        ),
+    },
+
+    # ── count ─────────────────────────────────────────────────────────────
+    "stats_count_block": {
+        "ru": (
+            "🔢 *{title}* _(число)_\n"
+            "За 7 дней: среднее {avg_7}, сумма {sum_7}\n"
+            "За всё время: среднее {avg_all}, сумма {sum_all}, макс {max_val}\n"
+            "Дней с ответом: {total_days}"
+        ),
+        "en": (
+            "🔢 *{title}* _(number)_\n"
+            "Last 7 days: avg {avg_7}, sum {sum_7}\n"
+            "All time: avg {avg_all}, sum {sum_all}, max {max_val}\n"
+            "Days answered: {total_days}"
+        ),
+        "tt": (
+            "🔢 *{title}* _(сан)_\n"
+            "7 көн: уртача {avg_7}, сумма {sum_7}\n"
+            "Барлыгы: уртача {avg_all}, сумма {sum_all}, макс {max_val}\n"
+            "Җавап биргән көннәр: {total_days}"
+        ),
+    },
+
+    # ── scale_1_5 ─────────────────────────────────────────────────────────
+    "stats_scale_block": {
+        "ru": (
+            "⭐ *{title}* _(шкала 1–5)_\n"
+            "За 7 дней: среднее {avg_7}\n"
+            "За всё время: среднее {avg_all}, макс {max_val}\n"
+            "Оценки: {dist_str}\n"
+            "Дней с ответом: {total_days}"
+        ),
+        "en": (
+            "⭐ *{title}* _(scale 1–5)_\n"
+            "Last 7 days: avg {avg_7}\n"
+            "All time: avg {avg_all}, max {max_val}\n"
+            "Scores: {dist_str}\n"
+            "Days answered: {total_days}"
+        ),
+        "tt": (
+            "⭐ *{title}* _(шкала 1–5)_\n"
+            "7 көн: уртача {avg_7}\n"
+            "Барлыгы: уртача {avg_all}, макс {max_val}\n"
+            "Бәяләр: {dist_str}\n"
+            "Дней с ответом: {total_days}"
+        ),
+    },
+
+    # ── poll ──────────────────────────────────────────────────────────────
+    "stats_poll_block": {
+        "ru": (
+            "📋 *{title}* _(варианты)_\n"
+            "Всего ответов: {total}\n"
+            "{dist_str}"
+        ),
+        "en": (
+            "📋 *{title}* _(poll)_\n"
+            "Total answers: {total}\n"
+            "{dist_str}"
+        ),
+        "tt": (
+            "📋 *{title}* _(вариантлар)_\n"
+            "Барлыгы: {total}\n"
+            "{dist_str}"
+        ),
+    },
+
+    # ── Разделитель ───────────────────────────────────────────────────────
+    "stats_separator": {
+        "ru": "\n",
+        "en": "\n",
+        "tt": "\n",
+    },
+
+    # ── Admin challenge detail ─────────────────────────────────────────────
+    "adm_detail_header": {
+        "ru": "📊 *{title}* — подробная статистика\n",
+        "en": "📊 *{title}* — detailed stats\n",
+        "tt": "📊 *{title}* — тулы статистика\n",
+    },
+    "adm_detail_participants": {
+        "ru": (
+            "👥 Участники: *{active}* активных / {total} всего\n"
+            "📬 Сегодня ответили: *{today}* ({rate}%)\n"
+            "📅 За неделю: *{week}* уникальных\n"
+        ),
+        "en": (
+            "👥 Participants: *{active}* active / {total} total\n"
+            "📬 Answered today: *{today}* ({rate}%)\n"
+            "📅 This week: *{week}* unique\n"
+        ),
+        "tt": (
+            "👥 Катнашучылар: *{active}* актив / {total} барлыгы\n"
+            "📬 Бүген: *{today}* ({rate}%)\n"
+            "📅 Атна: *{week}* уникаль\n"
+        ),
+    },
+    "adm_detail_yesno": {
+        "ru": "✅ «Да» сегодня: *{today_pct}%* | за неделю: *{week_pct}%*\n",
+        "en": "✅ «Yes» today: *{today_pct}%* | this week: *{week_pct}%*\n",
+        "tt": "✅ «Әйе» бүген: *{today_pct}%* | атна: *{week_pct}%*\n",
+    },
+    "adm_detail_count": {
+        "ru": (
+            "📈 Среднее сегодня: *{avg_today}* | за неделю: *{avg_week}*\n"
+            "🏆 Максимум за всё время: *{max_ever}*\n"
+        ),
+        "en": (
+            "📈 Avg today: *{avg_today}* | this week: *{avg_week}*\n"
+            "🏆 All-time max: *{max_ever}*\n"
+        ),
+        "tt": (
+            "📈 Уртача бүген: *{avg_today}* | атна: *{avg_week}*\n"
+            "🏆 Максимум: *{max_ever}*\n"
+        ),
+    },
+    "adm_detail_daily_header": {
+        "ru": "\n📆 *Последние 7 дней:*\n",
+        "en": "\n📆 *Last 7 days:*\n",
+        "tt": "\n📆 *Соңгы 7 көн:*\n",
+    },
+    "adm_detail_daily_row_yesno": {
+        "ru": "`{day}` — {count} ответов, {yes_pct}% «да»",
+        "en": "`{day}` — {count} answers, {yes_pct}% «yes»",
+        "tt": "`{day}` — {count} җавап, {yes_pct}% «әйе»",
+    },
+    "adm_detail_daily_row_count": {
+        "ru": "`{day}` — {count} ответов, среднее {avg_val}",
+        "en": "`{day}` — {count} answers, avg {avg_val}",
+        "tt": "`{day}` — {count} җавап, уртача {avg_val}",
+    },
+    "adm_detail_daily_row_plain": {
+        "ru": "`{day}` — {count} ответов",
+        "en": "`{day}` — {count} answers",
+        "tt": "`{day}` — {count} җавап",
+    },
+    "adm_detail_top_header": {
+        "ru": "\n🏅 *Топ участников:*\n",
+        "en": "\n🏅 *Top participants:*\n",
+        "tt": "\n🏅 *Иң яхшы катнашучылар:*\n",
+    },
+    "adm_detail_top_row": {
+        "ru": "{pos}. {name} — {answers} дней, среднее {avg}",
+        "en": "{pos}. {name} — {answers} days, avg {avg}",
+        "tt": "{pos}. {name} — {answers} көн, уртача {avg}",
+    },
+    "adm_ch_btn_detail": {
+        "ru": "📊 Детальная статистика",
+        "en": "📊 Detailed Stats",
+        "tt": "📊 Тулы статистика",
+    },
+    "adm_na": {
+        "ru": "н/д",
+        "en": "n/a",
+        "tt": "юк",
+    },
 
     # ── Challenges ─────────────────────────────────────────────────────────
     "challenges_header": {
         "ru": "🕌 *Активные челленджи:*\n",
         "en": "🕌 *Active challenges:*\n",
-        "tt": "🕌 *Актив чәлленҗлар:*\n",
+        "tt": "🕌 *Актив сынаулар:*\n",
     },
     "no_challenges": {
         "ru": "Нет активных челленджей.",
         "en": "No active challenges.",
-        "tt": "Актив чәлленҗлар юк.",
+        "tt": "Актив сынаулар юк.",
     },
     "joined_challenge": {
-        "ru": "✅ Ты вступил в челлендж!",
+        "ru": "✅ Вы вступили в челлендж!",
         "en": "✅ You joined the challenge!",
-        "tt": "✅ Сез чәлленҗгә кердегез!",
+        "tt": "✅ Сез сынауга кушылдыгыз!",
     },
     "already_participating": {
-        "ru": "Ты уже участвуешь.",
+        "ru": "Вы уже участвуете.",
         "en": "You are already participating.",
-        "tt": "Сез инде катнашасыз.",
+        "tt": "Сез сынауда катнашасыз.",
     },
     "left_challenge": {
-        "ru": "Ты вышел из челленджа.",
+        "ru": "Вы вышли из челленджа.",
         "en": "You left the challenge.",
-        "tt": "Сез чәлленҗдән чыктыгыз.",
+        "tt": "Сез сынаудар чыктыгыз.",
     },
 
     # ── Settings ───────────────────────────────────────────────────────────
     "settings_header": {
-        "ru": "⚙️ *Настройки*\n\nЧасовой пояс: `{tz}`\nЯзык: {lang_label}\n\nОтправь геолокацию для автоопределения таймзоны.\nИли введи вручную: `/timezone Europe/Moscow`",
+        "ru": "⚙️ *Настройки*\n\nЧасовой пояс: `{tz}`\nЯзык: {lang_label}\n\nОтправьте геолокацию для автоопределения таймзоны.\nИли введи вручную: `/timezone Europe/Moscow`",
         "en": "⚙️ *Settings*\n\nTimezone: `{tz}`\nLanguage: {lang_label}\n\nSend your location to detect timezone automatically.\nOr type manually: `/timezone Europe/Moscow`",
-        "tt": "⚙️ *Көйләүләр*\n\nВакыт зонасы: `{tz}`\nТел: {lang_label}\n\nВакыт зонасын автоматик билгеләү өчен геолокацияне жибәрегез.\nЯки языгыз: `/timezone Europe/Moscow`",
+        "tt": "⚙️ *Көйләүләр*\n\nВакыт зонасы: `{tz}`\nТел: {lang_label}\n\nВакыт зонасын автоматик билгеләү өчен урыныгызны жибәрегез.\nЯки языгыз: `/timezone Europe/Moscow`",
     },
     "tz_invalid": {
-        "ru": "❌ Неверный таймзон. Пример: `Europe/Moscow`",
+        "ru": "❌ Неверная таймзона. Пример: `Europe/Moscow`",
         "en": "❌ Invalid timezone. Example: `Europe/Moscow`",
-        "tt": "❌ Дөрес булмаган вакыт зонасы. Мисал: `Europe/Moscow`",
+        "tt": "❌ Хаталы вакыт зонасы. Мисал: `Europe/Moscow`",
     },
     "tz_updated": {
         "ru": "✅ Часовой пояс обновлён: `{tz}`",
@@ -146,12 +362,12 @@ _S: dict[str, dict[str, str]] = {
     "location_received": {
         "ru": "📍 Геолокация получена.\nЧасовой пояс определён: `{tz}`\n\nВопросы теперь будут приходить в нужное время.",
         "en": "📍 Location received.\nTimezone detected: `{tz}`\n\nYou will now receive questions at the right time.",
-        "tt": "📍 Геолокация алынды.\nВакыт зонасы: `{tz}`\n\nСорауларны дөрес вакытта аласыз.",
+        "tt": "📍 Геолокация кабул булды.\nВакыт зонасы: `{tz}`\n\nСораулар дөрес вакытта килер.",
     },
 
     # ── Language selection ──────────────────────────────────────────────────
     "lang_select": {
-        "ru": "🌐 Выбери язык интерфейса:",
+        "ru": "🌐 Выберите язык интерфейса:",
         "en": "🌐 Choose interface language:",
         "tt": "🌐 Интерфейс телен сайлагыз:",
     },
@@ -165,7 +381,7 @@ _S: dict[str, dict[str, str]] = {
     "answer_recorded": {
         "ru": "✅ Ответ «{value}» на челлендж *{title}* принят.",
         "en": "✅ Answer «{value}» for challenge *{title}* recorded.",
-        "tt": "✅ *{title}* чәлленҗенә «{value}» кабул ителде.",
+        "tt": "✅ *{title}* сынауга «{value}» кабул ителде.",
     },
     "answer_toast": {
         "ru": "✅ Записано!",
@@ -173,19 +389,19 @@ _S: dict[str, dict[str, str]] = {
         "tt": "✅ Язылды!",
     },
     "already_answered": {
-        "ru": "Ты уже отвечал сегодня на этот вопрос.",
+        "ru": "Вы уже ответили на этот вопрос сегодня.",
         "en": "You have already answered this question today.",
         "tt": "Сез бүген инде бу соруга җавап бирдегез.",
     },
     "challenge_not_found": {
         "ru": "Челлендж не найден.",
         "en": "Challenge not found.",
-        "tt": "Чәлленҗ табылмады.",
+        "tt": "Сынау табылмады.",
     },
 
     # ── Count input ─────────────────────────────────────────────────────────
     "count_prompt": {
-        "ru": "\n\n✏️ Введи число в ответ на это сообщение.",
+        "ru": "\n\n✏️ Введиде число в ответ на это сообщение.",
         "en": "\n\n✏️ Reply to this message with a number.",
         "tt": "\n\n✏️ Бу хәбәргә сан белән җавап языгыз.",
     },
@@ -195,26 +411,59 @@ _S: dict[str, dict[str, str]] = {
         "tt": "✅ *{title}* өчен {count} язылды.",
     },
     "count_already_answered": {
-        "ru": "Ты уже отвечал сегодня.",
+        "ru": "Вы уже ответили сегодня.",
         "en": "You have already answered today.",
         "tt": "Сез бүген инде җавап бирдегез.",
     },
     "count_multiple_pending": {
-        "ru": "У тебя несколько ожидающих вопросов с числовым ответом. Ответь через кнопку в нужном сообщении.\n\nОжидают:\n{list}",
+        "ru": "У вас несколько неотвеченных вопросов с числовым ответом. Ответьте через кнопку в нужном сообщении.\n\nОжидают:\n{list}",
         "en": "You have multiple count questions pending. Please reply via the button in the specific message.\n\nPending:\n{list}",
-        "tt": "Сездә берничә санлы сорау бар. Дөрес хәбәрдәге төймә аша җавап биреп карагыз.\n\nКөтеп тора:\n{list}",
+        "tt": "Сездә берничә җавапсыз сорау бар. Дөрес хәбәрдәге төймә аша җавап биреп карагыз.\n\nКөтеп тора:\n{list}",
     },
 
     # ── Challenge announcement ─────────────────────────────────────────────
     "challenge_announce": {
-        "ru": "🕌 *Новый челлендж: {title}*\n\n{description}\n\n📋 Тип: {kind}\n⏰ Ежедневно в: {time}\n📆 Длительность: {days} дней\n\nПрисоединяйся к испытанию!",
-        "en": "🕌 *New Challenge: {title}*\n\n{description}\n\n📋 Type: {kind}\n⏰ Daily at: {time}\n📆 Duration: {days} days\n\nJoin the challenge!",
-        "tt": "🕌 *Яңа чәлленҗ: {title}*\n\n{description}\n\n📋 Төр: {kind}\n⏰ Көн саен: {time}\n📆 Озынлыгы: {days} көн\n\nЧәлленҗгә катнаш!",
+        "ru": (
+            "🕌 *Новый челлендж: {title}*\n"
+            "{description}\n\n"
+
+            "Ежедневно в {time} на протяжении {days} дней вы будете получать вопросы по ходу челленджа\n\n"
+
+            "Присоединяйтесь!"
+        ),
+        "en": (
+            "🕌 *New Challenge: {title}*\n"
+            "{description}\n\n"
+
+            "Every day at {time} for {days} days, you will receive questions throughout the challenge.\n\n"
+
+            "Join us!"
+        ),
+        "tt": (
+            "🕌 *Яңа сынау: {title}*\n"
+            "{description}\n\n"
+
+            "Һәр көн {time} сәгатьтә, {days} көн дәвамында, сынау дәвамында сез сораулар алачаксыз.\n\n"
+
+            "Кушылыгыз!"
+        ),
     },
     "btn_join_challenge": {
         "ru": "✅ Участвовать",
         "en": "✅ Join Challenge",
         "tt": "✅ Катнашу",
+    },
+    # Кнопка в списке челленджей — вступить (показывает название)
+    "btn_join_challenge_list": {
+        "ru": "➕ {title}",
+        "en": "➕ {title}",
+        "tt": "➕ {title}",
+    },
+    # Кнопка в списке челленджей — выйти (показывает название, явный предупреждающий emoji)
+    "btn_leave_challenge": {
+        "ru": "⛔️ Выйти из «{title}»",
+        "en": "⛔️ Leave «{title}»",
+        "tt": "⛔️ «{title}» дән чыгу",
     },
 
     # ── Admin panel ────────────────────────────────────────────────────────
@@ -231,7 +480,7 @@ _S: dict[str, dict[str, str]] = {
     "adm_btn_challenges": {
         "ru": "🧩 Челленджи",
         "en": "🧩 Challenges",
-        "tt": "🧩 Чәлленҗлар",
+        "tt": "🧩 Сынаулар",
     },
     "adm_btn_stats": {
         "ru": "📊 Статистика",
@@ -241,7 +490,7 @@ _S: dict[str, dict[str, str]] = {
     "adm_stats_header": {
         "ru": "👥 Всего пользователей: *{total}*\n🔥 Ответили сегодня: *{today}*\n\n📊 *Статистика по челленджам (сегодня):*",
         "en": "👥 Total users: *{total}*\n🔥 Active today: *{today}*\n\n📊 *Challenge statistics (today):*",
-        "tt": "👥 Барлык кулланучылар: *{total}*\n🔥 Бүген актив: *{today}*\n\n📊 *Чәлленҗ статистикасы (бүген):*",
+        "tt": "👥 Барлык кулланучылар: *{total}*\n🔥 Бүген актив: *{today}*\n\n📊 *Сынау статистикасы (бүген):*",
     },
     "adm_stats_row": {
         "ru": "\n• *{title}*\n  Ответили: {resp} | Среднее: {avg} | Макс: {max}",
@@ -251,7 +500,7 @@ _S: dict[str, dict[str, str]] = {
     "adm_challenges_title": {
         "ru": "🧩 *Управление челленджами:*",
         "en": "🧩 *Challenge Management:*",
-        "tt": "🧩 *Чәлленҗларны идарә итү:*",
+        "tt": "🧩 *Сынаулар белән идарә итү:*",
     },
     "adm_ch_status_active": {
         "ru": "🟢 Активен",
@@ -266,12 +515,12 @@ _S: dict[str, dict[str, str]] = {
     "adm_ch_btn_deactivate": {
         "ru": "🔴 Деактивировать",
         "en": "🔴 Deactivate",
-        "tt": "🔴 Деактивацияләргә",
+        "tt": "🔴 Деактивация",
     },
     "adm_ch_btn_activate": {
         "ru": "🟢 Активировать",
         "en": "🟢 Activate",
-        "tt": "🟢 Активацияләргә",
+        "tt": "🟢 Активация",
     },
     "adm_ch_btn_delete": {
         "ru": "🗑 Удалить",
@@ -291,17 +540,17 @@ _S: dict[str, dict[str, str]] = {
     "adm_ch_btn_create": {
         "ru": "➕ Создать челлендж",
         "en": "➕ Create Challenge",
-        "tt": "➕ Чәлленҗ булдырырга",
+        "tt": "➕ Сынау башларга",
     },
     "adm_ch_toggled_active": {
         "ru": "Челлендж активирован 🟢",
         "en": "Challenge activated 🟢",
-        "tt": "Чәлленҗ активлаштырылды 🟢",
+        "tt": "Сынау башланды 🟢",
     },
     "adm_ch_toggled_inactive": {
         "ru": "Челлендж деактивирован 🔴",
         "en": "Challenge deactivated 🔴",
-        "tt": "Чәлленҗ деактивлаштырылды 🔴",
+        "tt": "Сынау деактивлаштырылды 🔴",
     },
     "adm_ch_deleted": {
         "ru": "Удалён.",
@@ -325,9 +574,29 @@ _S: dict[str, dict[str, str]] = {
     },
     # ── Wizard steps ────────────────────────────────────────────────────────
     "adm_wiz_start": {
-        "ru": "🆕 *Создание челленджа*\n\nШаг 1/8 — введи slug.\nТолько a-z, 0-9, дефис. Пример: `daily-prayer`",
-        "en": "🆕 *Create Challenge*\n\nStep 1/8 — enter slug.\nOnly a-z, 0-9, hyphen. Example: `daily-prayer`",
-        "tt": "🆕 *Чәлленҗ булдыру*\n\nАдым 1/8 — slug языгыз.\nТик a-z, 0-9, дефис. Мисал: `daily-prayer`",
+        "ru": (
+            "🆕 *Создание челленджа*\n\n"
+            "Шаг 1/8 — введи *slug* (технический идентификатор).\n\n"
+            "Slug — это внутреннее имя челленджа для разработчиков и базы данных. "
+            "Пользователи его *не видят*. Используется в логах, экспорте данных, "
+            "API и при поддержке (например: «баг в челлендже `daily-prayer`»).\n\n"
+            "Только a-z, 0-9, дефис. Пример: `daily-prayer`"
+        ),
+        "en": (
+            "🆕 *Create Challenge*\n\n"
+            "Step 1/8 — enter *slug* (technical identifier).\n\n"
+            "Slug is the internal name for developers and the database. "
+            "Users *never see it*. Used in logs, data exports, API, "
+            "and support (e.g. «bug in challenge `daily-prayer`»).\n\n"
+            "Only a-z, 0-9, hyphen. Example: `daily-prayer`"
+        ),
+        "tt": (
+            "🆕 *Чәлленҗ булдыру*\n\n"
+            "Адым 1/8 — *slug* языгыз (техник идентификатор).\n\n"
+            "Slug — эчке исем, кулланучылар *күрми*. "
+            "Логларда, экспортта, API-да кулланыла.\n\n"
+            "Тик a-z, 0-9, дефис. Мисал: `daily-prayer`"
+        ),
     },
     "adm_wiz_slug_invalid": {
         "ru": "❌ Slug — только a-z, 0-9 и дефис.\nПример: `daily-prayer`",
@@ -335,32 +604,32 @@ _S: dict[str, dict[str, str]] = {
         "tt": "❌ Slug — тик a-z, 0-9 һәм дефис.\nМисал: `daily-prayer`",
     },
     "adm_wiz_slug_taken": {
-        "ru": "❌ Этот slug уже занят. Придумай другой:",
+        "ru": "❌ Этот slug уже занят. Придумайте другой:",
         "en": "❌ This slug is already taken. Try another:",
         "tt": "❌ Бу slug инде бар. Башкасын языгыз:",
     },
     "adm_wiz_title": {
-        "ru": "Slug: `{slug}`\n\nШаг 2/8 — введи *название* на русском:",
+        "ru": "Slug: `{slug}`\n\nШаг 2/8 — введите *название* на русском:",
         "en": "Slug: `{slug}`\n\nStep 2/8 — enter *title* in Russian:",
         "tt": "Slug: `{slug}`\n\nАдым 2/8 — рус телендә *исем* языгыз:",
     },
     "adm_wiz_description": {
-        "ru": "Название: *{title}*\n\nШаг 3/8 — введи *описание* (необязательно):",
+        "ru": "Название: *{title}*\n\nШаг 3/8 — введите *описание* (необязательно):",
         "en": "Title: *{title}*\n\nStep 3/8 — enter *description* (optional):",
-        "tt": "Исем: *{title}*\n\nАдым 3/8 — *тасвирлама* языгыз (кирәк түгел):",
+        "tt": "Исем: *{title}*\n\nАдым 3/8 — *тасвирлама* языгыз (узып китеп була):",
     },
     "adm_wiz_skip": {
         "ru": "⏭ Пропустить",
         "en": "⏭ Skip",
-        "tt": "⏭ Узып китү",
+        "tt": "⏭ Китеп калдыру",
     },
     "adm_wiz_kind": {
-        "ru": "Шаг 4/8 — выбери *тип вопроса*:",
+        "ru": "Шаг 4/8 — выберите *тип вопроса*:",
         "en": "Step 4/8 — choose *question type*:",
         "tt": "Адым 4/8 — *сорау төрен* сайлагыз:",
     },
     "adm_wiz_question": {
-        "ru": "Тип: *{kind}*\n\nШаг 5/8 — введи *текст вопроса* на русском:",
+        "ru": "Тип: *{kind}*\n\nШаг 5/8 — введите *текст вопроса* на русском:",
         "en": "Type: *{kind}*\n\nStep 5/8 — enter *question text* in Russian:",
         "tt": "Төр: *{kind}*\n\nАдым 5/8 — рус телендә *сорау тексты* языгыз:",
     },
@@ -370,9 +639,9 @@ _S: dict[str, dict[str, str]] = {
         "tt": "Адым 6/8 — көнлек жибәрү вакыты (СС:ДД, мәс. `06:00`):",
     },
     "adm_wiz_schedule_invalid": {
-        "ru": "❌ Неверный формат. Введи ЧЧ:ММ, например `06:00`:",
+        "ru": "❌ Неверный формат. Введите ЧЧ:ММ, например `06:00`:",
         "en": "❌ Wrong format. Enter HH:MM, e.g. `06:00`:",
-        "tt": "❌ Дөрес булмаган формат. СС:ДД языгыз, мәс. `06:00`:",
+        "tt": "❌ Хаталы формат. СС:ДД языгыз, мәс. `06:00`:",
     },
     "adm_wiz_duration": {
         "ru": "Шаг 7/8 — длительность в днях (например `40`):",
@@ -382,17 +651,17 @@ _S: dict[str, dict[str, str]] = {
     "adm_wiz_duration_invalid": {
         "ru": "❌ Введи целое число от 1 до 3650.",
         "en": "❌ Enter a whole number from 1 to 3650.",
-        "tt": "❌ 1 дән 3650 гача бөтен сан языгыз.",
+        "tt": "❌ 1 дән 3650 кадәр сан языгыз.",
     },
     "adm_wiz_launch": {
-        "ru": "Шаг 8/8 — когда запустить челлендж?\n\nНажми *Прямо сейчас* или введи дату по Москве:\n`ГГГГ-ММ-ДД ЧЧ:ММ`",
+        "ru": "Шаг 8/8 — когда запустить челлендж?\n\nНажмите *Прямо сейчас* или введите дату по Москве:\n`ГГГГ-ММ-ДД ЧЧ:ММ`",
         "en": "Step 8/8 — when to launch the challenge?\n\nTap *Right Now* or enter Moskow date:\n`YYYY-MM-DD HH:MM`",
-        "tt": "Адым 8/8 — чәлленҗне кайчан башларга?\n\n*Хәзер үк* басыгыз яки Казандагы вакытын языгыз:\n`ГГГГ-АА-КК СС:ДД`",
+        "tt": "Адым 8/8 — сынауны кайчан башларга?\n\n*Хәзер үк* дип басыгыз яки Мәскәү вакытын языгыз:\n`ГГГГ-АА-КК СС:ДД`",
     },
     "adm_wiz_launch_invalid": {
         "ru": "❌ Неверный формат. Пример: `2025-03-20 09:00`",
         "en": "❌ Wrong format. Example: `2025-03-20 09:00`",
-        "tt": "❌ Дөрес булмаган формат. Мисал: `2025-03-20 09:00`",
+        "tt": "❌ Хаталы формат. Мисал: `2025-03-20 09:00`",
     },
     "btn_launch_now": {
         "ru": "⚡ Прямо сейчас",
@@ -417,23 +686,23 @@ _S: dict[str, dict[str, str]] = {
             "Create challenge?"
         ),
         "tt": (
-            "📋 *Яңа чәлленҗ карашы:*\n\n"
+            "📋 *Яңа сынау карашы:*\n\n"
             "Slug: `{slug}`\nИсем: {title}\nТасвирлама: {desc}\n"
             "Төр: {kind}\nСорау: _{question}_\n"
             "Вакыт: `{time}`\nОзынлыгы: {days} көн\n"
             "Башлану: {launch}\n\n"
-            "Чәлленҗ булдырырга?"
+            "Сынауны ясаргамы?"
         ),
     },
     "adm_wiz_review_now": {
         "ru": "сразу после создания",
         "en": "immediately after creation",
-        "tt": "булдырылгач дәррәү",
+        "tt": "ясаганнан соң",
     },
     "adm_wiz_confirm_btn": {
         "ru": "✅ Создать",
         "en": "✅ Create",
-        "tt": "✅ Булдырырга",
+        "tt": "✅ Башларга",
     },
     "adm_wiz_edit_btn": {
         "ru": "✏️ Редактировать",
@@ -448,7 +717,7 @@ _S: dict[str, dict[str, str]] = {
     "adm_ch_created": {
         "ru": "✅ Челлендж *{title}* (`{slug}`) создан!\nТип: `{kind}` | Время: `{time}` | Дней: {days}",
         "en": "✅ Challenge *{title}* (`{slug}`) created!\nType: `{kind}` | Time: `{time}` | Days: {days}",
-        "tt": "✅ Чәлленҗ *{title}* (`{slug}`) булдырылды!\nТөр: `{kind}` | Вакыт: `{time}` | Көннәр: {days}",
+        "tt": "✅ Сынау*{title}* (`{slug}`) булдырылды!\nТөр: `{kind}` | Вакыт: `{time}` | Көннәр: {days}",
     },
     "adm_wiz_cancelled": {
         "ru": "Отменено",
@@ -459,7 +728,7 @@ _S: dict[str, dict[str, str]] = {
     "adm_broadcast_prompt": {
         "ru": "📣 *Рассылка*\n\nВведи текст сообщения (поддерживается Markdown):",
         "en": "📣 *Broadcast*\n\nEnter message text (Markdown supported):",
-        "tt": "📣 *Рассылка*\n\nХәбәр тексты языгыз (Markdown ярдәме бар):",
+        "tt": "📣 *Рассылка*\n\nХәбәр текстын языгыз (Markdown):",
     },
     "adm_broadcast_queued": {
         "ru": "✅ Рассылка #{id} поставлена в очередь.",
@@ -480,7 +749,7 @@ _S: dict[str, dict[str, str]] = {
     "adm_tr_step_question": {
         "ru": "🌐 Перевод на *{lang_name}*\n\nШаг 2/2 — введи *текст вопроса*:",
         "en": "🌐 Translation to *{lang_name}*\n\nStep 2/2 — enter *question text*:",
-        "tt": "🌐 *{lang_name}* теленә тәрҗемә\n\nАдым 2/2 — *сорау тексты* языгыз:",
+        "tt": "🌐 *{lang_name}* теленә тәрҗемә\n\nАдым 2/2 — *сорау текстын* языгыз:",
     },
     "adm_tr_saved": {
         "ru": "✅ Перевод на *{lang_name}* сохранён.",
@@ -496,7 +765,7 @@ _S: dict[str, dict[str, str]] = {
     "adm_edit_field_unknown": {
         "ru": "Неизвестное поле",
         "en": "Unknown field",
-        "tt": "Билгесез кыр",
+        "tt": "Билгесез урын",
     },
     # ── Back / Cancel ────────────────────────────────────────────────────────
     "btn_cancel": {

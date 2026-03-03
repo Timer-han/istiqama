@@ -1,20 +1,4 @@
-"""services/scheduler.py – daily question sender + challenge announcements.
-
-Two independent loops run inside scheduler_task():
-
-1. _run_dispatcher(bot, storage)
-   - One SQL query (get_due_participants) → index scan
-   - Inactivity check via last_answer_day
-   - Sends daily question, updates next_dispatch_at
-   - For count-kind: sets FSM state so user reply is routed correctly
-
-2. _run_announcer(bot)
-   - Polls get_unannounced_challenges() every tick
-   - For each new/launch-ready challenge: sends announcement to ALL users
-   - Announcement includes title, description, kind, schedule, duration
-   - Inline "Join" button per user in their own language
-   - Marks challenge announced=True after sending
-"""
+"""services/scheduler.py – daily question sender + challenge announcements."""
 from __future__ import annotations
 
 import asyncio
@@ -28,7 +12,7 @@ from aiogram.fsm.storage.base import BaseStorage, StorageKey
 
 import services.db as db
 from bot.handlers import build_question_message
-from bot.i18n import t, kind_label, user_lang as _user_lang, SUPPORTED_LANGS
+from bot.i18n import t, kind_label, SUPPORTED_LANGS
 from bot.keyboards import challenge_announce_kb
 from bot.states import CountAnswerState
 from bot.utils import challenge_text
@@ -36,7 +20,7 @@ from bot.utils import challenge_text
 logger = logging.getLogger(__name__)
 
 INACTIVITY_DAYS = 3
-ANNOUNCE_RATE   = 0.05   # seconds between announcement messages (~20 msg/s)
+ANNOUNCE_RATE   = 0.05
 
 
 async def scheduler_task(
@@ -45,8 +29,16 @@ async def scheduler_task(
     interval: int = 60,
 ) -> None:
     logger.info("Scheduler started (interval=%ds)", interval)
+    _last_partition_check: date | None = None
+
     while True:
         try:
+            today = date.today()
+            if _last_partition_check != today:
+                await db.ensure_event_partitions(months_ahead=3)
+                _last_partition_check = today
+                logger.info("Partition check done for %s", today)
+
             await _run_dispatcher(bot, storage)
             await _run_announcer(bot)
         except Exception:
@@ -67,10 +59,12 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
 
     logger.debug("Dispatcher: %d rows due", len(rows))
 
+    # ── Phase 1: фильтрация, группировка по user → batches ─────────────────
+    users: dict[int, dict] = {}
+
     for row in rows:
-        user_id      = row["user_id"]
-        challenge_id = row["challenge_id"]
-        tz_str       = row["timezone"] or "UTC"
+        user_id = row["user_id"]
+        tz_str  = row["timezone"] or "UTC"
         try:
             tz = pytz.timezone(tz_str)
         except Exception:
@@ -79,57 +73,137 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
         now_local   = datetime.now(tz)
         today_local = now_local.date()
 
-        # Guard: already dispatched today?
-        last_dispatch: date | None = row["last_dispatch_day"]
-        if last_dispatch is not None and last_dispatch >= today_local:
-            continue
-
-        # Guard: schedule_time not yet reached?
         meta = row["metadata"]
         if isinstance(meta, str):
             meta = json.loads(meta)
-        schedule_time_str: str = meta.get("schedule_time", "06:00")
+        schedule_time_str = meta.get("schedule_time", "06:00")
+
+        # schedule_time ещё не наступило
         try:
-            sched_h, sched_m = map(int, schedule_time_str.split(":"))
+            sh, sm = map(int, schedule_time_str.split(":"))
         except ValueError:
-            sched_h, sched_m = 6, 0
-        scheduled_time_today = now_local.replace(
-            hour=sched_h, minute=sched_m, second=0, microsecond=0)
-        if now_local < scheduled_time_today:
+            sh, sm = 6, 0
+        if now_local < now_local.replace(hour=sh, minute=sm, second=0, microsecond=0):
             continue
 
-        # Inactivity check
+        # Инактивность → авто-кик
         if _is_inactive(row, today_local, tz):
             logger.info("Auto-kick user_id=%d challenge=%s", user_id, row["slug"])
-            await db.set_participant_inactive(user_id, challenge_id)
+            await db.set_participant_inactive(user_id, row["challenge_id"])
             continue
 
-        # Build and send question
-        user_language = row.get("lang") or "ru"
-        challenge_mock = {
-            "id": challenge_id, "slug": row["slug"],
-            "kind": row["kind"], "metadata": row["metadata"],
-        }
-        try:
-            text, markup = build_question_message(challenge_mock, lang=user_language)
-            send_kw: dict = {
-                "chat_id": row["telegram_id"], "text": text, "parse_mode": "Markdown"
+        if user_id not in users:
+            users[user_id] = {
+                "user_id":     user_id,
+                "telegram_id": row["telegram_id"],
+                "lang":        row["lang"] or "ru",
+                "tz_str":      tz_str,
+                "today":       today_local,
+                "batches":     {},
             }
-            if markup:
-                send_kw["reply_markup"] = markup
-            await bot.send_message(**send_kw)
-        except Exception as exc:
-            logger.warning("Failed send %s → %d: %s", row["slug"], row["telegram_id"], exc)
-            continue
+        users[user_id]["batches"].setdefault(schedule_time_str, []).append(row)
 
-        # Update dispatch metadata
-        next_ts = db.next_dispatch_ts(schedule_time_str, tz_str)
-        await db.update_after_dispatch(user_id, challenge_id, today_local, next_ts)
-        logger.debug("Dispatched %s → user_id=%d", row["slug"], user_id)
+    if not users:
+        return
 
-        # FSM state for count-kind
-        if row["kind"] == "count":
-            await _set_count_state(bot, storage, row["telegram_id"], challenge_id)
+    # ── Phase 2: добавить в очередь + обновить next_dispatch_at ─────────────
+    #
+    # ВАЖНО: next_dispatch_at обновляется здесь, ДО отправки.
+    # Это гарантирует, что следующий тик шедулера не подберёт
+    # того же пользователя, даже если Phase 3 выбросит исключение.
+
+    for user_id, udata in users.items():
+        today  = udata["today"]
+        tz_str = udata["tz_str"]
+
+        await db.clear_stale_queue(user_id, today)
+
+        for schedule_time, batch_rows in udata["batches"].items():
+            batch_rows.sort(key=lambda r: r["challenge_id"])
+            next_ts = db.next_dispatch_ts(schedule_time, tz_str)
+
+            for position, row in enumerate(batch_rows, start=1):
+                await db.enqueue_question(
+                    user_id          = user_id,
+                    challenge_id     = row["challenge_id"],
+                    day              = today,
+                    schedule_time    = schedule_time,
+                    position         = position,
+                    next_dispatch_ts = next_ts,
+                )
+
+    # ── Phase 3: отправить первый вопрос батча (если нет неотвеченного) ──────
+
+    for user_id, udata in users.items():
+        today = udata["today"]
+
+        for schedule_time in udata["batches"]:
+            # Есть отправленный-но-неотвеченный → ждём ответа
+            if await db.has_unanswered_in_batch(user_id, today, schedule_time):
+                logger.debug(
+                    "user_id=%d batch=%s: unanswered question pending, skipping",
+                    user_id, schedule_time,
+                )
+                continue
+
+            next_item = await db.get_next_unsent(user_id, today, schedule_time)
+            if not next_item:
+                logger.debug(
+                    "user_id=%d batch=%s: no unsent items left",
+                    user_id, schedule_time,
+                )
+                continue
+
+            await _send_queue_item(bot, storage, udata, next_item, today)
+
+
+async def _send_queue_item(
+    bot: Bot,
+    storage: BaseStorage,
+    udata: dict,
+    item,
+    today: date,
+) -> bool:
+    """
+    Отправить вопрос из очереди.
+    Возвращает True при успехе.
+
+    Порядок операций:
+      1. Отправить сообщение
+      2. Пометить sent_at (ТОЛЬКО если отправка успешна)
+      3. Обновить last_dispatch_day
+      4. Для count — поставить FSM
+    """
+    user_id     = udata["user_id"]
+    telegram_id = udata["telegram_id"]
+    lang        = udata["lang"]
+
+    challenge_mock = {
+        "id":       item["challenge_id"],
+        "slug":     item["slug"],
+        "kind":     item["kind"],
+        "metadata": item["metadata"],
+    }
+    text, markup = build_question_message(challenge_mock, lang=lang)
+    send_kw: dict = {"chat_id": telegram_id, "text": text, "parse_mode": "Markdown"}
+    if markup:
+        send_kw["reply_markup"] = markup
+
+    try:
+        await bot.send_message(**send_kw)
+    except Exception as exc:
+        logger.warning("Failed send %s → %d: %s", item["slug"], telegram_id, exc)
+        return False
+
+    # Только после успешной отправки — обновляем БД
+    await db.mark_queue_sent(item["queue_id"])
+    await db.mark_last_dispatch_day(user_id, item["challenge_id"], today)
+    logger.info("Sent %s → user_id=%d", item["slug"], user_id)
+
+    if item["kind"] == "count":
+        await _set_count_state(bot, storage, telegram_id, item["challenge_id"])
+
+    return True
 
 
 async def _set_count_state(
@@ -141,8 +215,8 @@ async def _set_count_state(
 
 
 def _is_inactive(row, today_local: date, tz) -> bool:
-    cutoff: date = today_local - timedelta(days=INACTIVITY_DAYS - 1)
-    joined_local: date = row["cp_joined_at"].astimezone(tz).date()
+    cutoff       = today_local - timedelta(days=INACTIVITY_DAYS - 1)
+    joined_local = row["cp_joined_at"].astimezone(tz).date()
     if joined_local >= cutoff:
         return False
     last_answer: date | None = row["last_answer_day"]
@@ -152,19 +226,15 @@ def _is_inactive(row, today_local: date, tz) -> bool:
 # ─── Announcer ─────────────────────────────────────────────────────────────
 
 async def _run_announcer(bot: Bot) -> None:
-    """Send challenge announcement to all users for every unannounced challenge."""
     challenges = await db.get_unannounced_challenges()
     if not challenges:
         return
 
-    # Fetch all users once
     from adapters.storage_postgres import fetch as _fetch
     all_users = await _fetch("SELECT telegram_id, lang FROM users ORDER BY id")
 
     if not all_users:
-        # No registered users yet — skip but don't mark announced,
-        # so we retry on next tick when users arrive.
-        logger.info("Announcer: no users yet, will retry next tick")
+        logger.info("Announcer: no users yet, retrying next tick")
         return
 
     for challenge in challenges:
@@ -177,34 +247,25 @@ async def _run_announcer(bot: Bot) -> None:
         schedule_time = meta.get("schedule_time", "?")
         duration      = meta.get("duration_days", "?")
         translations  = meta.get("translations", {})
-
-        sent   = 0
-        failed = 0
+        sent = failed = 0
 
         for user in all_users:
             lang = (user.get("lang") or "ru") if hasattr(user, "get") else "ru"
             lang = lang if lang in SUPPORTED_LANGS else "ru"
 
-            # challenge_text() returns (title, question); get description separately
-            title, _ = challenge_text(challenge, lang)
-            tr_block  = translations.get(lang) or translations.get("ru") or {}
+            title, _    = challenge_text(challenge, lang)
+            tr_block    = translations.get(lang) or translations.get("ru") or {}
             description = tr_block.get("description") or "—"
 
-            text = t(
-                "challenge_announce", lang,
-                title=title,
-                description=description,
-                kind=kind_label(kind, lang),
-                time=schedule_time,
-                days=duration,
-            )
+            text = t("challenge_announce", lang,
+                     title=title, description=description,
+                     kind=kind_label(kind, lang),
+                     time=schedule_time, days=duration)
             kb = challenge_announce_kb(challenge["id"], lang)
             try:
                 await bot.send_message(
                     chat_id=user["telegram_id"],
-                    text=text,
-                    reply_markup=kb,
-                    parse_mode="Markdown",
+                    text=text, reply_markup=kb, parse_mode="Markdown",
                 )
                 sent += 1
             except Exception as exc:

@@ -1,5 +1,5 @@
 -- ============================================================
--- Istiqama – init.sql
+-- Istiqama – init.sql  (полная версия с очередью v2)
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -37,21 +37,15 @@ CREATE TABLE IF NOT EXISTS challenges (
 
 -- ----------------------------------------------------------
 -- challenge_participants
---
---   last_answer_day  – дата последнего ответа (local_day пользователя).
---                      NULL если ответов ещё не было.
---   next_dispatch_at – UTC-момент следующей отправки вопроса.
---                      Scheduler: WHERE cp.next_dispatch_at <= NOW().
---                      NULL = не вычислено (scheduler отправит сразу).
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS challenge_participants (
-    user_id          BIGINT      NOT NULL REFERENCES users(id)     ON DELETE CASCADE,
-    challenge_id     BIGINT      NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
-    joined_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    active           BOOLEAN     NOT NULL DEFAULT TRUE,
-    last_answer_day   DATE,         -- local_day последнего ответа пользователя
-    last_dispatch_day DATE,         -- local_day последней отправки вопроса
-    next_dispatch_at TIMESTAMPTZ,
+    user_id           BIGINT      NOT NULL REFERENCES users(id)      ON DELETE CASCADE,
+    challenge_id      BIGINT      NOT NULL REFERENCES challenges(id)  ON DELETE CASCADE,
+    joined_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    active            BOOLEAN     NOT NULL DEFAULT TRUE,
+    last_answer_day   DATE,
+    last_dispatch_day DATE,
+    next_dispatch_at  TIMESTAMPTZ,
     PRIMARY KEY (user_id, challenge_id)
 );
 
@@ -60,29 +54,49 @@ CREATE TABLE IF NOT EXISTS challenge_participants (
 -- ----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS events (
     id           BIGSERIAL,
-    user_id      BIGINT      NOT NULL REFERENCES users(id)     ON DELETE CASCADE,
-    challenge_id BIGINT      NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+    user_id      BIGINT      NOT NULL REFERENCES users(id)      ON DELETE CASCADE,
+    challenge_id BIGINT      NOT NULL REFERENCES challenges(id)  ON DELETE CASCADE,
     event_ts     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     local_day    DATE        NOT NULL,
     payload      JSONB       NOT NULL DEFAULT '{}'
 ) PARTITION BY RANGE (event_ts);
 
 DO $$
-DECLARE
-    m DATE;
+DECLARE m DATE;
 BEGIN
-    FOR i IN 0..11 LOOP
+    FOR i IN 0..14 LOOP
         m := DATE_TRUNC('month', NOW()) + (i || ' month')::INTERVAL;
         EXECUTE FORMAT(
             'CREATE TABLE IF NOT EXISTS events_%s PARTITION OF events
              FOR VALUES FROM (%L) TO (%L)',
-            TO_CHAR(m, 'YYYY_MM'),
-            m,
-            m + '1 month'::INTERVAL
+            TO_CHAR(m, 'YYYY_MM'), m, m + '1 month'::INTERVAL
         );
     END LOOP;
 END;
 $$;
+
+-- ----------------------------------------------------------
+-- user_question_queue
+--
+-- Жизненный цикл записи:
+--   sent_at=NULL,  answered_at=NULL  → в очереди, не отправлен
+--   sent_at=NOW,   answered_at=NULL  → ОТПРАВЛЕН, ждём ответ  ← блокирует следующий
+--   sent_at=NOW,   answered_at=NOW   → ОТВЕЧЕН → разблокирует следующий
+--
+-- Батч = (user_id, queued_for_day, schedule_time).
+-- Каждый день записи пересоздаются. Вчерашние удаляются при старте тика.
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS user_question_queue (
+    id             BIGSERIAL PRIMARY KEY,
+    user_id        BIGINT   NOT NULL REFERENCES users(id)      ON DELETE CASCADE,
+    challenge_id   BIGINT   NOT NULL REFERENCES challenges(id)  ON DELETE CASCADE,
+    queued_for_day DATE     NOT NULL,
+    schedule_time  TEXT     NOT NULL,
+    position       SMALLINT NOT NULL DEFAULT 1,
+    sent_at        TIMESTAMPTZ,    -- когда вопрос отправлен пользователю
+    answered_at    TIMESTAMPTZ,    -- когда пользователь ответил
+    UNIQUE (user_id, challenge_id, queued_for_day)
+);
 
 -- ----------------------------------------------------------
 -- daily_challenge_stats
@@ -127,60 +141,90 @@ ON CONFLICT DO NOTHING;
 -- Indexes
 -- ----------------------------------------------------------
 
--- Главный индекс scheduler hotpath:
---   WHERE cp.active = TRUE AND cp.next_dispatch_at <= NOW()
--- Partial index — покрывает только активных, B-tree по времени.
 CREATE INDEX IF NOT EXISTS idx_participants_dispatch
     ON challenge_participants (next_dispatch_at)
     WHERE active = TRUE;
 
--- Aggregator читает events строго по id
 CREATE INDEX IF NOT EXISTS idx_events_id
     ON events (id);
 
--- Статистика и дубль-чек ответов
 CREATE INDEX IF NOT EXISTS idx_events_user_challenge_day
     ON events (user_id, challenge_id, local_day);
 
--- Для get_active_participants / admin stats
 CREATE INDEX IF NOT EXISTS idx_participants_challenge_active
     ON challenge_participants (challenge_id, active);
 
--- ----------------------------------------------------------
--- Migration: add last_dispatch_day to challenge_participants
--- (safe to run on existing DB — IF NOT EXISTS column pattern)
--- ----------------------------------------------------------
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='challenge_participants'
-          AND column_name='last_dispatch_day'
-    ) THEN
-        ALTER TABLE challenge_participants
-            ADD COLUMN last_dispatch_day DATE;
-    END IF;
-END;
-$$;
+-- Найти следующий неотправленный вопрос в батче
+CREATE INDEX IF NOT EXISTS idx_queue_unsent
+    ON user_question_queue (user_id, queued_for_day, schedule_time, position)
+    WHERE sent_at IS NULL;
+
+-- Проверить есть ли отправленный-неотвеченный в батче
+CREATE INDEX IF NOT EXISTS idx_queue_unanswered
+    ON user_question_queue (user_id, queued_for_day, schedule_time)
+    WHERE sent_at IS NOT NULL AND answered_at IS NULL;
 
 -- ----------------------------------------------------------
--- Migration: add lang column to users (safe for existing DB)
+-- Safe migrations for existing databases
+-- Безопасно запускать повторно на живой базе
 -- ----------------------------------------------------------
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_name='users' AND column_name='lang'
-    ) THEN
+
+-- lang в users
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='users' AND column_name='lang') THEN
         ALTER TABLE users ADD COLUMN lang TEXT NOT NULL DEFAULT 'ru';
     END IF;
-END;
-$$;
+END $$;
 
--- ----------------------------------------------------------
--- Migration: challenges – launch_at and announced are stored
--- inside metadata JSONB (no DDL change needed).
--- This comment documents the convention:
---   metadata.launch_at  – ISO UTC string | null (null = immediately)
---   metadata.announced  – boolean (false until scheduler sends announcement)
--- ----------------------------------------------------------
+-- last_dispatch_day в challenge_participants
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='challenge_participants'
+                   AND column_name='last_dispatch_day') THEN
+        ALTER TABLE challenge_participants ADD COLUMN last_dispatch_day DATE;
+    END IF;
+END $$;
+
+-- Создать user_question_queue если не существует
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.tables
+                   WHERE table_name = 'user_question_queue') THEN
+        CREATE TABLE user_question_queue (
+            id             BIGSERIAL PRIMARY KEY,
+            user_id        BIGINT   NOT NULL REFERENCES users(id)      ON DELETE CASCADE,
+            challenge_id   BIGINT   NOT NULL REFERENCES challenges(id)  ON DELETE CASCADE,
+            queued_for_day DATE     NOT NULL,
+            schedule_time  TEXT     NOT NULL,
+            position       SMALLINT NOT NULL DEFAULT 1,
+            sent_at        TIMESTAMPTZ,
+            answered_at    TIMESTAMPTZ,
+            UNIQUE (user_id, challenge_id, queued_for_day)
+        );
+        CREATE INDEX idx_queue_unsent ON user_question_queue
+            (user_id, queued_for_day, schedule_time, position)
+            WHERE sent_at IS NULL;
+        CREATE INDEX idx_queue_unanswered ON user_question_queue
+            (user_id, queued_for_day, schedule_time)
+            WHERE sent_at IS NOT NULL AND answered_at IS NULL;
+    END IF;
+END $$;
+
+-- Миграция если таблица есть со старой схемой (dispatched_at → sent_at + answered_at)
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns
+               WHERE table_name='user_question_queue'
+               AND column_name='dispatched_at') THEN
+        ALTER TABLE user_question_queue RENAME COLUMN dispatched_at TO sent_at;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='user_question_queue'
+                   AND column_name='answered_at') THEN
+        ALTER TABLE user_question_queue ADD COLUMN answered_at TIMESTAMPTZ;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_name='user_question_queue'
+                   AND column_name='sent_at') THEN
+        ALTER TABLE user_question_queue ADD COLUMN sent_at TIMESTAMPTZ;
+    END IF;
+END $$;

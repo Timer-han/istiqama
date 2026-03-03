@@ -7,11 +7,11 @@ import logging
 from aiogram import Bot
 
 import services.db as db
-from adapters.storage_postgres import fetch, get_pool
+from adapters.storage_postgres import fetch
 
 logger = logging.getLogger(__name__)
 
-RATE_LIMIT = 20        # messages per second (Telegram limit ~30/s, be conservative)
+RATE_LIMIT    = 20   # messages per second
 SLEEP_SECONDS = 5
 
 
@@ -26,17 +26,8 @@ async def outbox_task(bot: Bot) -> None:
 
 
 async def _process_outbox(bot: Bot) -> None:
-    async with get_pool().acquire() as con:
-        messages = await con.fetch(
-            """
-            SELECT * FROM outbox_messages
-            WHERE status='pending'
-              AND (scheduled_at IS NULL OR scheduled_at <= NOW())
-            ORDER BY id
-            LIMIT 5
-            FOR UPDATE SKIP LOCKED
-            """
-        )
+    # Используем db.get_pending_outbox вместо дублирующего raw-запроса
+    messages = await db.get_pending_outbox(limit=5)
 
     for msg in messages:
         await db.mark_outbox_sending(msg["id"])
@@ -56,13 +47,16 @@ async def _process_outbox(bot: Bot) -> None:
 
 
 async def _broadcast_all(bot: Bot, text: str) -> None:
-    from adapters.storage_postgres import fetch
     users = await fetch("SELECT telegram_id FROM users")
     delay = 1.0 / RATE_LIMIT
 
     for user in users:
         try:
-            await bot.send_message(chat_id=user["telegram_id"], text=text, parse_mode="Markdown")
+            await bot.send_message(
+                chat_id=user["telegram_id"],
+                text=text,
+                parse_mode="Markdown",
+            )
         except Exception as e:
             logger.warning("Broadcast to %d failed: %s", user["telegram_id"], e)
         await asyncio.sleep(delay)

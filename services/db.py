@@ -3,10 +3,11 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timedelta
-from typing import Optional, List
+from typing import Optional, List, Any
 
 import pytz
 from asyncpg import Record
+from asyncpg.exceptions import UniqueViolationError
 
 from adapters.storage_postgres import fetch, fetchrow, execute, get_pool
 
@@ -158,28 +159,6 @@ async def delete_challenge(challenge_id: int) -> None:
     await execute("DELETE FROM challenges WHERE id=$1", challenge_id)
 
 
-async def deactivate_expired_challenges() -> int:
-    """
-    Деактивирует челленджи, у которых истёк срок (duration_days).
-    Срок считается от created_at: ends_at = created_at + duration_days * '1 day'.
-
-    Возвращает количество деактивированных челленджей.
-    Вызывается из scheduler каждый тик.
-    """
-    result = await execute(
-        """
-        UPDATE challenges
-        SET active = FALSE
-        WHERE active = TRUE
-          AND (metadata->>'duration_days') IS NOT NULL
-          AND (metadata->>'duration_days')::int > 0
-          AND created_at + ((metadata->>'duration_days')::int * INTERVAL '1 day') < NOW()
-        """
-    )
-    count = int(result.split()[-1]) if result else 0
-    return count
-
-
 # ─────────────────────────── PARTICIPANTS ─────────────────────────────────
 
 
@@ -268,17 +247,14 @@ async def get_active_participants(challenge_id: int) -> List[Record]:
 
 
 async def deactivate_expired_challenges() -> int:
-    """
-    Деактивировать челленджи, у которых истёк срок (duration_days).
-    Считаем от created_at. Возвращает количество деактивированных.
-    """
     result = await execute(
         """
         UPDATE challenges
         SET active = FALSE
         WHERE active = TRUE
-          AND (metadata->>'duration_days')::int IS NOT NULL
-          AND created_at + ((metadata->>'duration_days')::int || ' days')::INTERVAL < NOW()
+          AND (metadata->>'duration_days') IS NOT NULL
+          AND (metadata->>'duration_days') ~ '^\d+$'
+          AND created_at + ((metadata->>'duration_days')::int * INTERVAL '1 day') < NOW()
         """
     )
     return int(result.split()[-1]) if result else 0
@@ -426,7 +402,7 @@ async def record_event(
                     """,
                     user_id, challenge_id, today, json.dumps(payload),
                 )
-            except Exception:
+            except UniqueViolationError:
                 # Дубль: unique violation на (user_id, challenge_id, local_day)
                 return None
 
@@ -640,3 +616,620 @@ async def get_all_telegram_ids() -> List[int]:
     """All registered users."""
     rows = await fetch("SELECT telegram_id FROM users ORDER BY id")
     return [r["telegram_id"] for r in rows]
+
+
+# ─── QUEUE ─────────────────────────────────────────────────────────────────
+
+
+async def clear_stale_queue(user_id: int, today: date) -> None:
+    """Удалить записи за прошлые дни. Безопасно вызывать каждый тик."""
+    await execute(
+        "DELETE FROM user_question_queue WHERE user_id = $1 AND queued_for_day < $2",
+        user_id, today,
+    )
+
+
+async def enqueue_question(
+    user_id: int,
+    challenge_id: int,
+    day: date,
+    schedule_time: str,
+    position: int,
+    next_dispatch_ts: datetime,
+) -> None:
+    """
+    Добавить вопрос в очередь для конкретного дня.
+    ON CONFLICT DO NOTHING — безопасно вызывать повторно.
+
+    next_dispatch_at ВСЕГДА обновляется до завтра, независимо от того,
+    была ли запись уже в очереди. Это гарантирует, что шедулер не подберёт
+    пользователя снова на следующем тике.
+    """
+    async with get_pool().acquire() as con:
+        async with con.transaction():
+            await con.execute(
+                """
+                INSERT INTO user_question_queue
+                    (user_id, challenge_id, queued_for_day, schedule_time, position)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (user_id, challenge_id, queued_for_day) DO NOTHING
+                """,
+                user_id, challenge_id, day, schedule_time, position,
+            )
+            # Всегда обновляем next_dispatch_at — даже если запись уже была.
+            # Это критично: без этого шедулер переберёт пользователя снова.
+            await con.execute(
+                """
+                UPDATE challenge_participants
+                SET next_dispatch_at = $3
+                WHERE user_id = $1 AND challenge_id = $2
+                """,
+                user_id, challenge_id, next_dispatch_ts,
+            )
+
+
+async def has_unanswered_in_batch(
+    user_id: int, day: date, schedule_time: str
+) -> bool:
+    """
+    Вернуть True если в батче есть вопрос ОТПРАВЛЕННЫЙ, но НЕ ОТВЕЧЕННЫЙ.
+    Используем только поля самой таблицы очереди — никаких JOIN.
+    """
+    row = await fetchrow(
+        """
+        SELECT 1
+        FROM user_question_queue
+        WHERE user_id        = $1
+          AND queued_for_day = $2
+          AND schedule_time  = $3
+          AND sent_at        IS NOT NULL
+          AND answered_at    IS NULL
+        LIMIT 1
+        """,
+        user_id, day, schedule_time,
+    )
+    return row is not None
+
+
+async def get_next_unsent(
+    user_id: int, day: date, schedule_time: str
+) -> Optional[object]:
+    """
+    Первый ещё НЕ ОТПРАВЛЕННЫЙ вопрос в батче (по позиции).
+    Только для сегодняшнего дня.
+    """
+    return await fetchrow(
+        """
+        SELECT q.id           AS queue_id,
+               q.challenge_id,
+               q.schedule_time,
+               q.queued_for_day,
+               c.slug,
+               c.kind,
+               c.metadata
+        FROM user_question_queue q
+        JOIN challenges c ON c.id = q.challenge_id
+        WHERE q.user_id        = $1
+          AND q.queued_for_day = $2
+          AND q.schedule_time  = $3
+          AND q.sent_at        IS NULL
+        ORDER BY q.position ASC
+        LIMIT 1
+        """,
+        user_id, day, schedule_time,
+    )
+
+
+async def get_next_after_answer(
+    user_id: int, answered_challenge_id: int, today: date
+) -> Optional[object]:
+    """
+    После ответа на answered_challenge_id:
+    - Если запись не для сегодня — не триггерим цепочку (вчерашний ответ).
+    - Возвращаем следующий НЕОТПРАВЛЕННЫЙ вопрос из того же батча.
+    """
+    entry = await fetchrow(
+        """
+        SELECT schedule_time
+        FROM user_question_queue
+        WHERE user_id        = $1
+          AND challenge_id   = $2
+          AND queued_for_day = $3
+        """,
+        user_id, answered_challenge_id, today,
+    )
+    if not entry:
+        # Ответ за прошлый день — не запускаем цепочку
+        return None
+
+    return await fetchrow(
+        """
+        SELECT q.id           AS queue_id,
+               q.challenge_id,
+               q.schedule_time,
+               q.queued_for_day,
+               c.slug,
+               c.kind,
+               c.metadata
+        FROM user_question_queue q
+        JOIN challenges c ON c.id = q.challenge_id
+        WHERE q.user_id        = $1
+          AND q.queued_for_day = $2
+          AND q.schedule_time  = $3
+          AND q.sent_at        IS NULL
+        ORDER BY q.position ASC
+        LIMIT 1
+        """,
+        user_id, today, entry["schedule_time"],
+    )
+
+
+async def mark_queue_sent(queue_id: int) -> None:
+    """Пометить запись как отправленную (но ещё не отвеченную)."""
+    await execute(
+        "UPDATE user_question_queue SET sent_at = NOW() WHERE id = $1",
+        queue_id,
+    )
+
+
+async def mark_queue_answered(
+    user_id: int, challenge_id: int, today: date
+) -> None:
+    """
+    Пометить запись как отвеченную.
+    Вызывать из record_event-обёртки в handlers после успешной записи ответа.
+    """
+    await execute(
+        """
+        UPDATE user_question_queue
+        SET answered_at = NOW()
+        WHERE user_id        = $1
+          AND challenge_id   = $2
+          AND queued_for_day = $3
+          AND sent_at        IS NOT NULL
+          AND answered_at    IS NULL
+        """,
+        user_id, challenge_id, today,
+    )
+
+
+async def mark_last_dispatch_day(
+    user_id: int, challenge_id: int, local_day: date
+) -> None:
+    """Обновить last_dispatch_day в challenge_participants после отправки вопроса."""
+    await execute(
+        """
+        UPDATE challenge_participants
+        SET last_dispatch_day = $3
+        WHERE user_id = $1 AND challenge_id = $2
+        """,
+        user_id, challenge_id, local_day,
+    )
+
+
+# ─── PARTITION MANAGEMENT ──────────────────────────────────────────────────
+
+
+async def ensure_event_partitions(months_ahead: int = 3) -> None:
+    """
+    Создать партиции events на следующие N месяцев если их нет.
+    Безопасно вызывать повторно. Вызывать из scheduler раз в сутки.
+    """
+    today = date.today()
+    async with get_pool().acquire() as con:
+        for i in range(1, months_ahead + 1):
+            year  = today.year + (today.month - 1 + i) // 12
+            month = (today.month - 1 + i) % 12 + 1
+            m_start = date(year, month, 1)
+            m_end   = (
+                date(year + 1, 1, 1) if month == 12
+                else date(year, month + 1, 1)
+            )
+            await con.execute(
+                f"""
+                CREATE TABLE IF NOT EXISTS events_{m_start.strftime('%Y_%m')}
+                PARTITION OF events
+                FOR VALUES FROM ('{m_start}') TO ('{m_end}')
+                """
+            )
+
+
+# ─────────────────────────── USER DETAILED STATS ──────────────────────────
+
+
+async def get_user_challenge_stats(user_id: int, challenge_id: int) -> dict[str, Any]:
+    """
+    Полная статистика пользователя по одному челленджу.
+    Возвращает dict с полями в зависимости от kind:
+
+    Общие для всех kind:
+        total_days      – сколько дней пользователь отвечал
+        joined_days     – сколько дней прошло с момента вступления
+        last_7_rows     – список (local_day, payload) за последние 7 дней
+
+    yes_no:
+        yes_count       – всего "да" за весь период
+        no_count        – всего "нет"
+        yes_7           – "да" за последние 7 дней
+        days_7          – дней с ответами за последние 7 дней
+        current_streak  – текущая серия "да" подряд
+        max_streak      – максимальная серия "да"
+
+    count / scale_1_5:
+        avg_7           – среднее за последние 7 дней (None если нет данных)
+        avg_all         – среднее за всё время
+        max_val         – максимальное значение
+        sum_all         – сумма за всё время
+        last_7_values   – список (local_day, value) за 7 дней
+        distribution    – {1:N, 2:N, ...} только для scale_1_5
+
+    poll:
+        distribution    – {option_index: count}
+        total_answers   – итого ответов
+    """
+    # Все события пользователя по этому челленджу, хронологически
+    rows = await fetch(
+        """
+        SELECT local_day, payload
+        FROM events
+        WHERE user_id = $1 AND challenge_id = $2
+        ORDER BY local_day ASC
+        """,
+        user_id, challenge_id,
+    )
+
+    # Дата вступления
+    cp = await fetchrow(
+        "SELECT joined_at FROM challenge_participants WHERE user_id=$1 AND challenge_id=$2",
+        user_id, challenge_id,
+    )
+    import pytz
+    joined_date = cp["joined_at"].astimezone(pytz.UTC).date() if cp else date.today()
+    joined_days = (date.today() - joined_date).days + 1
+
+    total_days = len(rows)
+    today      = date.today()
+    week_ago   = today - timedelta(days=6)
+
+    last_7_rows = [r for r in rows if r["local_day"] >= week_ago]
+
+    result: dict[str, Any] = {
+        "total_days":  total_days,
+        "joined_days": joined_days,
+        "last_7_rows": last_7_rows,
+    }
+
+    # Нужен kind — получим из challenge
+    challenge = await fetchrow("SELECT kind FROM challenges WHERE id=$1", challenge_id)
+    if not challenge:
+        return result
+    kind = challenge["kind"]
+
+    # ── yes_no ───────────────────────────────────────────────────────────
+    if kind == "yes_no":
+        yes_count = sum(
+            1 for r in rows
+            if _payload_value(r["payload"]) == "yes"
+        )
+        no_count = total_days - yes_count
+
+        yes_7 = sum(
+            1 for r in last_7_rows
+            if _payload_value(r["payload"]) == "yes"
+        )
+        days_7 = len(last_7_rows)
+
+        # Стрики: считаем по всем дням с ответами
+        current_streak, max_streak = _calc_streaks(rows, "yes")
+
+        result.update({
+            "yes_count":      yes_count,
+            "no_count":       no_count,
+            "yes_7":          yes_7,
+            "days_7":         days_7,
+            "current_streak": current_streak,
+            "max_streak":     max_streak,
+        })
+
+    # ── count / scale_1_5 ────────────────────────────────────────────────
+    elif kind in ("count", "scale_1_5"):
+        values_all  = [_payload_int(r["payload"]) for r in rows]
+        values_7    = [_payload_int(r["payload"]) for r in last_7_rows]
+
+        avg_all = round(sum(values_all) / len(values_all), 1) if values_all else None
+        avg_7   = round(sum(values_7)   / len(values_7),   1) if values_7   else None
+        max_val = max(values_all) if values_all else None
+        sum_all = sum(values_all)
+
+        last_7_values = [
+            (r["local_day"], _payload_int(r["payload"]))
+            for r in last_7_rows
+        ]
+
+        result.update({
+            "avg_7":         avg_7,
+            "avg_all":       avg_all,
+            "max_val":       max_val,
+            "sum_all":       sum_all,
+            "last_7_values": last_7_values,
+        })
+
+        if kind == "scale_1_5":
+            dist: dict[int, int] = {i: 0 for i in range(1, 6)}
+            for v in values_all:
+                if v in dist:
+                    dist[v] += 1
+            result["distribution"] = dist
+
+    # ── poll ─────────────────────────────────────────────────────────────
+    elif kind == "poll":
+        dist_poll: dict[str, int] = {}
+        for r in rows:
+            v = str(_payload_value(r["payload"]))
+            dist_poll[v] = dist_poll.get(v, 0) + 1
+        result["distribution"]  = dist_poll
+        result["total_answers"] = total_days
+
+    return result
+
+
+def _payload_value(payload) -> str:
+    """Достать value из payload (строка или dict)."""
+    import json as _json
+    if isinstance(payload, str):
+        payload = _json.loads(payload)
+    return str(payload.get("value", ""))
+
+
+def _payload_int(payload) -> int:
+    import json as _json
+    if isinstance(payload, str):
+        payload = _json.loads(payload)
+    try:
+        return int(payload.get("value", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _calc_streaks(rows, target_value: str) -> tuple[int, int]:
+    """
+    Вычислить (current_streak, max_streak) для yes_no.
+    Учитываем только дни с ответами — пропущенные дни обрывают серию.
+    """
+    if not rows:
+        return 0, 0
+
+    today = date.today()
+    # Преобразуем в set дат с нужным значением
+    yes_days = {r["local_day"] for r in rows if _payload_value(r["payload"]) == target_value}
+    all_days  = sorted({r["local_day"] for r in rows})
+
+    # max streak
+    max_s = cur_s = 0
+    prev: date | None = None
+    for d in all_days:
+        if d in yes_days:
+            if prev is not None and (d - prev).days == 1:
+                cur_s += 1
+            else:
+                cur_s = 1
+            max_s = max(max_s, cur_s)
+        else:
+            cur_s = 0
+        prev = d
+
+    # current streak: идём назад от сегодня
+    cur_s = 0
+    d = today
+    while d in yes_days:
+        cur_s += 1
+        d -= timedelta(days=1)
+    # если сегодня нет ответа — проверим вчера
+    if cur_s == 0:
+        d = today - timedelta(days=1)
+        while d in yes_days:
+            cur_s += 1
+            d -= timedelta(days=1)
+
+    return cur_s, max_s
+
+
+# ─────────────────────────── ADMIN DETAILED STATS ─────────────────────────
+
+
+async def get_admin_challenge_detail(challenge_id: int) -> dict[str, Any]:
+    """
+    Детальная статистика по одному челленджу для админа.
+
+    Возвращает:
+        slug, kind
+        total_participants  – всего вступали
+        active_participants – сейчас активны
+        answered_today      – ответили сегодня
+        answered_week       – уникальных пользователей ответивших за 7 дней
+        response_rate_today – % (answered_today / active_participants)
+        daily_7             – [(day, count, avg_val, yes_pct)] за 7 дней
+
+    yes_no дополнительно:
+        yes_pct_today       – % "да" среди ответивших сегодня
+        yes_pct_week        – % "да" за неделю
+
+    count/scale_1_5 дополнительно:
+        avg_today           – среднее значение сегодня
+        avg_week            – среднее значение за 7 дней
+        max_ever            – максимум за всё время
+        top_users           – [(display_name, total_answers, avg_val)]
+
+    poll дополнительно:
+        distribution_week   – {option_idx: count} за 7 дней
+    """
+    challenge = await fetchrow("SELECT * FROM challenges WHERE id=$1", challenge_id)
+    if not challenge:
+        return {}
+
+    import json as _json
+    meta = challenge["metadata"]
+    if isinstance(meta, str):
+        meta = _json.loads(meta)
+    kind = challenge["kind"]
+    today = date.today()
+    week_ago = today - timedelta(days=6)
+
+    # Участники
+    parts = await fetchrow(
+        """
+        SELECT
+            COUNT(*) FILTER (WHERE TRUE)       AS total_participants,
+            COUNT(*) FILTER (WHERE active=TRUE) AS active_participants
+        FROM challenge_participants
+        WHERE challenge_id = $1
+        """,
+        challenge_id,
+    )
+
+    # Ответили сегодня / за неделю
+    answers = await fetchrow(
+        """
+        SELECT
+            COUNT(DISTINCT user_id) FILTER (WHERE local_day = $2) AS answered_today,
+            COUNT(DISTINCT user_id) FILTER (WHERE local_day >= $3) AS answered_week
+        FROM events
+        WHERE challenge_id = $1
+        """,
+        challenge_id, today, week_ago,
+    )
+
+    active = parts["active_participants"] or 0
+    answered_today = answers["answered_today"] or 0
+    rate = round(answered_today / active * 100) if active else 0
+
+    result: dict[str, Any] = {
+        "slug":                challenge["slug"],
+        "kind":                kind,
+        "total_participants":  parts["total_participants"],
+        "active_participants": active,
+        "answered_today":      answered_today,
+        "answered_week":       answers["answered_week"],
+        "response_rate_today": rate,
+    }
+
+    # Динамика по дням (последние 7)
+    daily_rows = await fetch(
+        """
+        SELECT
+            local_day,
+            COUNT(*)                                                      AS cnt,
+            AVG((payload->>'value')::numeric)                             AS avg_val,
+            COUNT(*) FILTER (WHERE payload->>'value' = 'yes') * 100.0
+                / NULLIF(COUNT(*), 0)                                     AS yes_pct
+        FROM events
+        WHERE challenge_id = $1 AND local_day >= $2
+        GROUP BY local_day
+        ORDER BY local_day DESC
+        """,
+        challenge_id, week_ago,
+    )
+    result["daily_7"] = [
+        {
+            "day":     r["local_day"],
+            "count":   r["cnt"],
+            "avg_val": round(float(r["avg_val"]), 1) if r["avg_val"] is not None else None,
+            "yes_pct": round(float(r["yes_pct"])) if r["yes_pct"] is not None else None,
+        }
+        for r in daily_rows
+    ]
+
+    # ── yes_no ───────────────────────────────────────────────────────────
+    if kind == "yes_no":
+        yn_today = await fetchrow(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE payload->>'value' = 'yes') AS yes_today,
+                COUNT(*)                                           AS total_today
+            FROM events
+            WHERE challenge_id=$1 AND local_day=$2
+            """,
+            challenge_id, today,
+        )
+        yn_week = await fetchrow(
+            """
+            SELECT
+                COUNT(*) FILTER (WHERE payload->>'value' = 'yes') AS yes_week,
+                COUNT(*)                                           AS total_week
+            FROM events
+            WHERE challenge_id=$1 AND local_day >= $2
+            """,
+            challenge_id, week_ago,
+        )
+        yes_pct_today = (
+            round(yn_today["yes_today"] / yn_today["total_today"] * 100)
+            if yn_today["total_today"] else None
+        )
+        yes_pct_week = (
+            round(yn_week["yes_week"] / yn_week["total_week"] * 100)
+            if yn_week["total_week"] else None
+        )
+        result.update({
+            "yes_pct_today": yes_pct_today,
+            "yes_pct_week":  yes_pct_week,
+        })
+
+    # ── count / scale_1_5 ────────────────────────────────────────────────
+    elif kind in ("count", "scale_1_5"):
+        agg = await fetchrow(
+            """
+            SELECT
+                AVG((payload->>'value')::numeric) FILTER (WHERE local_day=$2) AS avg_today,
+                AVG((payload->>'value')::numeric) FILTER (WHERE local_day>=$3) AS avg_week,
+                MAX((payload->>'value')::numeric)                               AS max_ever
+            FROM events
+            WHERE challenge_id=$1
+            """,
+            challenge_id, today, week_ago,
+        )
+        result.update({
+            "avg_today": round(float(agg["avg_today"]), 1) if agg["avg_today"] is not None else None,
+            "avg_week":  round(float(agg["avg_week"]),  1) if agg["avg_week"]  is not None else None,
+            "max_ever":  int(agg["max_ever"])               if agg["max_ever"]  is not None else None,
+        })
+
+        # Топ-5 пользователей
+        top_rows = await fetch(
+            """
+            SELECT
+                u.display_name,
+                COUNT(*)                              AS total_answers,
+                AVG((e.payload->>'value')::numeric)   AS avg_val
+            FROM events e
+            JOIN users u ON u.id = e.user_id
+            WHERE e.challenge_id = $1
+            GROUP BY u.id, u.display_name
+            ORDER BY total_answers DESC, avg_val DESC
+            LIMIT 5
+            """,
+            challenge_id,
+        )
+        result["top_users"] = [
+            {
+                "name":         r["display_name"] or "—",
+                "total_answers": r["total_answers"],
+                "avg_val":      round(float(r["avg_val"]), 1) if r["avg_val"] else 0,
+            }
+            for r in top_rows
+        ]
+
+    # ── poll ─────────────────────────────────────────────────────────────
+    elif kind == "poll":
+        poll_rows = await fetch(
+            """
+            SELECT payload->>'value' AS opt, COUNT(*) AS cnt
+            FROM events
+            WHERE challenge_id=$1 AND local_day >= $2
+            GROUP BY payload->>'value'
+            ORDER BY cnt DESC
+            """,
+            challenge_id, week_ago,
+        )
+        result["distribution_week"] = {r["opt"]: r["cnt"] for r in poll_rows}
+
+    return result

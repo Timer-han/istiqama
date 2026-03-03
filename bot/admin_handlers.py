@@ -16,6 +16,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 import services.db as db
 from bot.config import config
 from bot.i18n import t, user_lang as _user_lang, LANG_LABELS, kind_label
+
 from bot.keyboards import (
     admin_panel_kb,
     admin_challenges_list_kb,
@@ -119,6 +120,7 @@ async def adm_panel_cb(cb: CallbackQuery, user_lang: str = "ru"):
 
 @router.callback_query(F.data == "adm:stats")
 async def adm_stats(cb: CallbackQuery, user_lang: str = "ru"):
+    """Обзорная статистика — все активные челленджи одним сообщением."""
     stats = await db.get_admin_stats()
     header = t("adm_stats_header", user_lang,
                 total=stats["total_users"], today=stats["active_today"])
@@ -132,12 +134,30 @@ async def adm_stats(cb: CallbackQuery, user_lang: str = "ru"):
         avg   = f"{c['sum_counts'] / c['responses']:.1f}" if c["responses"] else "0"
         rows.append(t("adm_stats_row", user_lang,
                       title=title, resp=c["responses"], avg=avg, max=c["max_count"]))
+
+    # Кнопка "Детально" для каждого челленджа
+    from aiogram.utils.keyboard import InlineKeyboardBuilder
+    kb = InlineKeyboardBuilder()
+    for c in stats["challenges"]:
+        meta = c["metadata"]
+        if isinstance(meta, str):
+            meta = json.loads(meta)
+        tr    = meta.get("translations", {})
+        title = (tr.get(user_lang) or tr.get("ru", {})).get("title", c["slug"])
+        kb.button(
+            text=f"🔍 {title}",
+            callback_data=f"adm:ch:detail:{c['id']}",
+        )
+    kb.button(text=t("btn_nav_back", user_lang), callback_data="adm:panel")
+    kb.adjust(1)
+
     await cb.message.edit_text(
         header + "".join(rows),
-        reply_markup=back_to_panel_kb(user_lang),
+        reply_markup=kb.as_markup(),
         parse_mode="Markdown",
     )
     await cb.answer()
+
 
 
 # ─── Challenge list ────────────────────────────────────────────────────────
@@ -227,6 +247,102 @@ async def adm_challenge_stats(cb: CallbackQuery, user_lang: str = "ru"):
         parse_mode="Markdown",
     )
     await cb.answer()
+
+
+@router.callback_query(F.data.startswith("adm:ch:detail:"))
+async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
+    """Детальная статистика по одному челленджу."""
+    challenge_id = int(cb.data.split(":")[-1])
+    c = await db.get_challenge_by_id(challenge_id)
+    if not c:
+        await cb.answer(t("adm_ch_not_found", user_lang), show_alert=True)
+        return
+
+    detail = await db.get_admin_challenge_detail(challenge_id)
+    lang   = user_lang
+    na     = t("adm_na", lang)
+
+    title, _ = challenge_text(c, lang)
+    kind     = detail["kind"]
+
+    lines = [t("adm_detail_header", lang, title=title)]
+
+    # Участники и response rate
+    lines.append(t("adm_detail_participants", lang,
+                   active=detail["active_participants"],
+                   total=detail["total_participants"],
+                   today=detail["answered_today"],
+                   rate=detail["response_rate_today"],
+                   week=detail["answered_week"]))
+
+    # Специфика по kind
+    if kind == "yes_no":
+        today_pct = detail.get("yes_pct_today")
+        week_pct  = detail.get("yes_pct_week")
+        lines.append(t("adm_detail_yesno", lang,
+                       today_pct=today_pct if today_pct is not None else na,
+                       week_pct=week_pct   if week_pct  is not None else na))
+
+    elif kind in ("count", "scale_1_5"):
+        lines.append(t("adm_detail_count", lang,
+                       avg_today=detail.get("avg_today") or na,
+                       avg_week=detail.get("avg_week")   or na,
+                       max_ever=detail.get("max_ever")   or na))
+
+    elif kind == "poll":
+        dist = detail.get("distribution_week", {})
+        if dist:
+            # Получить тексты вариантов
+            meta = c["metadata"]
+            if isinstance(meta, str):
+                meta = json.loads(meta)
+            tr      = meta.get("translations", {})
+            options = (tr.get(lang) or tr.get("ru", {})).get("options", [])
+            dist_lines = []
+            total_poll = sum(dist.values())
+            for opt_idx, cnt in sorted(dist.items(), key=lambda x: -x[1]):
+                try:
+                    label = options[int(opt_idx)] if int(opt_idx) < len(options) else f"#{opt_idx}"
+                except (ValueError, IndexError):
+                    label = opt_idx
+                pct = round(cnt / total_poll * 100) if total_poll else 0
+                dist_lines.append(f"  • {label}: {cnt}× ({pct}%)")
+            lines.append("📋 За неделю:\n" + "\n".join(dist_lines) + "\n")
+
+    # Динамика по дням
+    daily = detail.get("daily_7", [])
+    if daily:
+        lines.append(t("adm_detail_daily_header", lang))
+        for row in daily:
+            day_str = str(row["day"])
+            if kind == "yes_no" and row["yes_pct"] is not None:
+                lines.append(t("adm_detail_daily_row_yesno", lang,
+                               day=day_str, count=row["count"], yes_pct=row["yes_pct"]))
+            elif kind in ("count", "scale_1_5") and row["avg_val"] is not None:
+                lines.append(t("adm_detail_daily_row_count", lang,
+                               day=day_str, count=row["count"], avg_val=row["avg_val"]))
+            else:
+                lines.append(t("adm_detail_daily_row_plain", lang,
+                               day=day_str, count=row["count"]))
+
+    # Топ участников (count/scale)
+    top = detail.get("top_users", [])
+    if top:
+        lines.append(t("adm_detail_top_header", lang))
+        for i, u in enumerate(top, start=1):
+            lines.append(t("adm_detail_top_row", lang,
+                           pos=i, name=u["name"],
+                           answers=u["total_answers"], avg=u["avg_val"]))
+
+    text = "\n".join(lines)
+
+    # Кнопки назад
+    from aiogram.utils.keyboard import InlineKeyboardBuilder as _IKB
+    kb = _IKB()
+    kb.button(text=t("btn_nav_back", lang), callback_data=f"adm:ch:view:{challenge_id}")
+    await cb.message.edit_text(text, reply_markup=kb.as_markup(), parse_mode="Markdown")
+    await cb.answer()
+
 
 
 # ─── Create challenge wizard ───────────────────────────────────────────────
