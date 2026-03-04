@@ -398,7 +398,8 @@ async def _maybe_send_next(
     - Не запускать для ответов за прошлые дни (get_next_after_answer проверяет сам).
     """
     next_item = await db.get_next_after_answer(
-        db_user["id"], answered_challenge_id, today
+        db_user["id"], answered_challenge_id, today,
+        tz_str=db_user.get("timezone", "UTC"),
     )
     if not next_item:
         return

@@ -132,29 +132,43 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
                     next_dispatch_ts = next_ts,
                 )
 
-    # ── Phase 3: отправить первый вопрос батча (если нет неотвеченного) ──────
+    # ── Phase 3: отправить первый вопрос (если нет ЛЮБОГО неотвеченного) ──────
+    #
+    # Проверяем ГЛОБАЛЬНО по пользователю, а не по батчу.
+    # Если у пользователя отправлен хоть один вопрос и не получен ответ —
+    # не слать ничего нового, вне зависимости от schedule_time.
+    #
+    # Это гарантирует последовательность: Q1 → ответ → Q2 → ответ → Q3...
+    # даже если у них разные schedule_time (12:46 и 12:47).
+    #
+    # В _maybe_send_next (handlers) используется батч-логика: ответ на
+    # утренний вопрос не триггерит вечерний вопрос другого батча.
 
     for user_id, udata in users.items():
         today = udata["today"]
 
-        for schedule_time in udata["batches"]:
-            # Есть отправленный-но-неотвеченный → ждём ответа
-            if await db.has_unanswered_in_batch(user_id, today, schedule_time):
-                logger.debug(
-                    "user_id=%d batch=%s: unanswered question pending, skipping",
-                    user_id, schedule_time,
-                )
-                continue
+        # Глобальная проверка: есть ли хоть один неотвеченный вопрос?
+        if await db.has_any_unanswered_today(user_id, today):
+            logger.debug(
+                "user_id=%d: unanswered question pending (any batch), skipping",
+                user_id,
+            )
+            continue
 
+        # Ищем первый неотправленный вопрос по всем батчам (по порядку schedule_time)
+        sent_one = False
+        for schedule_time in sorted(udata["batches"]):
+            if sent_one:
+                break
             next_item = await db.get_next_unsent(user_id, today, schedule_time)
             if not next_item:
                 logger.debug(
-                    "user_id=%d batch=%s: no unsent items left",
+                    "user_id=%d batch=%s: no unsent items",
                     user_id, schedule_time,
                 )
                 continue
-
             await _send_queue_item(bot, storage, udata, next_item, today)
+            sent_one = True  # отправили один — стоп, ждём ответа
 
 
 async def _send_queue_item(

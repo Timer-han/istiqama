@@ -674,6 +674,7 @@ async def has_unanswered_in_batch(
     """
     Вернуть True если в батче есть вопрос ОТПРАВЛЕННЫЙ, но НЕ ОТВЕЧЕННЫЙ.
     Используем только поля самой таблицы очереди — никаких JOIN.
+    (Используется в _maybe_send_next в handlers для цепочки внутри батча.)
     """
     row = await fetchrow(
         """
@@ -687,6 +688,30 @@ async def has_unanswered_in_batch(
         LIMIT 1
         """,
         user_id, day, schedule_time,
+    )
+    return row is not None
+
+
+async def has_any_unanswered_today(user_id: int, day: date) -> bool:
+    """
+    Вернуть True если у пользователя есть ЛЮБОЙ отправленный
+    но НЕ отвеченный вопрос за сегодня — вне зависимости от schedule_time.
+
+    Используется шедулером: если True — не слать ничего нового.
+    Это гарантирует последовательность Q1 → ответ → Q2, даже если
+    у Q1 и Q2 разные schedule_time (12:46 и 12:47).
+    """
+    row = await fetchrow(
+        """
+        SELECT 1
+        FROM user_question_queue
+        WHERE user_id        = $1
+          AND queued_for_day = $2
+          AND sent_at        IS NOT NULL
+          AND answered_at    IS NULL
+        LIMIT 1
+        """,
+        user_id, day,
     )
     return row is not None
 
@@ -721,16 +746,22 @@ async def get_next_unsent(
 
 
 async def get_next_after_answer(
-    user_id: int, answered_challenge_id: int, today: date
+    user_id: int, answered_challenge_id: int, today: date, tz_str: str = "UTC"
 ) -> Optional[object]:
     """
-    После ответа на answered_challenge_id:
-    - Если запись не для сегодня — не триггерим цепочку (вчерашний ответ).
-    - Возвращаем следующий НЕОТПРАВЛЕННЫЙ вопрос из того же батча.
+    После ответа на answered_challenge_id найти следующий неотправленный вопрос.
+
+    Правила:
+    - Если запись не для сегодня → не триггерим (вчерашний ответ).
+    - Ищем среди ВСЕХ батчей (не только того же schedule_time),
+      иначе каждый челлендж со своим schedule_time застревает навсегда.
+    - Только те батчи, чьё schedule_time уже наступило в таймзоне юзера
+      (не шлём 21:00 вопрос когда пользователь ответил в 7am).
+    - Порядок: schedule_time ASC, position ASC.
     """
     entry = await fetchrow(
         """
-        SELECT schedule_time
+        SELECT 1
         FROM user_question_queue
         WHERE user_id        = $1
           AND challenge_id   = $2
@@ -739,8 +770,14 @@ async def get_next_after_answer(
         user_id, answered_challenge_id, today,
     )
     if not entry:
-        # Ответ за прошлый день — не запускаем цепочку
         return None
+
+    import pytz as _pytz
+    try:
+        _tz = _pytz.timezone(tz_str)
+    except Exception:
+        _tz = _pytz.UTC
+    current_hhmm = datetime.now(_tz).strftime("%H:%M")
 
     return await fetchrow(
         """
@@ -755,12 +792,12 @@ async def get_next_after_answer(
         JOIN challenges c ON c.id = q.challenge_id
         WHERE q.user_id        = $1
           AND q.queued_for_day = $2
-          AND q.schedule_time  = $3
           AND q.sent_at        IS NULL
-        ORDER BY q.position ASC
+          AND q.schedule_time  <= $3
+        ORDER BY q.schedule_time ASC, q.position ASC
         LIMIT 1
         """,
-        user_id, today, entry["schedule_time"],
+        user_id, today, current_hhmm,
     )
 
 
