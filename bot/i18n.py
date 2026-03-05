@@ -401,7 +401,7 @@ Click the menu below to see all the features!""",
 
     # ── Count input ─────────────────────────────────────────────────────────
     "count_prompt": {
-        "ru": "\n\n✏️ Введиде число в ответ на это сообщение.",
+        "ru": "\n\n✏️ Введите число в ответ на это сообщение.",
         "en": "\n\n✏️ Reply to this message with a number.",
         "tt": "\n\n✏️ Бу хәбәргә сан белән җавап языгыз.",
     },

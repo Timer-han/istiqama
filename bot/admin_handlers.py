@@ -416,8 +416,8 @@ async def create_title(msg: Message, state: FSMContext, user_lang: str = "ru"):
 async def create_description(msg: Message, state: FSMContext, user_lang: str = "ru"):
     lang = await _wlang(state, user_lang)
     desc = msg.text.strip()
-    if len(desc) > 300:
-        await msg.answer("❌ Max 300 chars.")
+    if len(desc) > 600:
+        await msg.answer("❌ Max 600 chars.")
         return
     await state.update_data(description_ru=desc)
     await _after_description(msg, state, lang)
