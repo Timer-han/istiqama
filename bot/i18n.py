@@ -29,7 +29,6 @@ KIND_LABELS: dict[str, dict[str, str]] = {
 _S: dict[str, dict[str, str]] = {
 
     # ── Reply-keyboard button labels ───────────────────────────────────────
-    # IMPORTANT: these exact strings are used by ButtonText filter for routing.
     "btn_stats": {
         "ru": "📊 Моя статистика",
         "en": "📊 My Statistics",
@@ -75,7 +74,6 @@ _S: dict[str, dict[str, str]] = {
 В боте можно присоединиться к различным коллективным и индивидуальным челленджам. Каждый день будут приходить вопросы и в конце периода можно будет увидеть свой прогресс!
 
 Нажми на меню снизу, чтобы увидеть все возможности!""",
-        # "Ассаляму алейкум, {name}! 🌙\n\nДобро пожаловать в Istiqama — трекер исламских привычек.\nВыбери раздел:",
         "en": """As-salamu alaykum, {name}
 
 This is the Istiqama bot, a halal habit tracker developed for the growth of the ummah.
@@ -83,15 +81,13 @@ This is the Istiqama bot, a halal habit tracker developed for the growth of the 
 In the bot, you can join various collective and individual challenges. Every day you will receive questions, and at the end of the period you will be able to see your progress!
 
 Click the menu below to see all the features!""",
-        # "Assalamu alaykum, {name}! 🌙\n\nWelcome to Istiqama — your Islamic habits tracker.\nChoose a section:",
-        "tt": """Әс-сәламү галәйкүм, [исем]
+        "tt": """Әс-сәламү галәйкүм, {name}
 
 Бу — Istiqama боты, өммәтне үстерү өчен эшләнгән хәләл гадәтләр трекеры.
 
 Ботта син төрле коллектив һәм шәхси сынауларга кушыла аласың. Һәр көн сораулар киләчәк, ә чор ахырында үз прогрессыңны күрә алачаксыз!
 
 Барлык мөмкинлекләрне күрү өчен астагы менюга басыгыз!""",
-        # "Әссәламү галәйкүм, {name}! 🌙\n\nIstiqama — мөселман гадәтләре трекерена хуш килдегез.\nБүлек сайлагыз:",
     },
     "main_menu_prompt": {
         "ru": "Главное меню:",
@@ -120,8 +116,6 @@ Click the menu below to see all the features!""",
         "en": "No responses in the last 7 days.",
         "tt": "Соңгы 7 көндә җаваплар юк.",
     },
-    
-    # ── Заголовок детальной статистики ────────────────────────────────────
     "stats_detail_header": {
         "ru": "📊 *Моя статистика*\n",
         "en": "📊 *My Statistics*\n",
@@ -226,7 +220,6 @@ Click the menu below to see all the features!""",
         ),
     },
 
-    # ── Разделитель ───────────────────────────────────────────────────────
     "stats_separator": {
         "ru": "\n",
         "en": "\n",
@@ -426,25 +419,19 @@ Click the menu below to see all the features!""",
         "ru": (
             "🕌 *Новый челлендж: {title}*\n"
             "{description}\n\n"
-
             "Ежедневно в {time} на протяжении {days} дней вы будете получать вопросы по ходу челленджа\n\n"
-
             "Присоединяйтесь!"
         ),
         "en": (
             "🕌 *New Challenge: {title}*\n"
             "{description}\n\n"
-
             "Every day at {time} for {days} days, you will receive questions throughout the challenge.\n\n"
-
             "Join us!"
         ),
         "tt": (
             "🕌 *Яңа сынау: {title}*\n"
             "{description}\n\n"
-
             "Һәр көн {time} сәгатьтә, {days} көн дәвамында, сынау дәвамында сез сораулар алачаксыз.\n\n"
-
             "Кушылыгыз!"
         ),
     },
@@ -453,13 +440,11 @@ Click the menu below to see all the features!""",
         "en": "✅ Join Challenge",
         "tt": "✅ Катнашу",
     },
-    # Кнопка в списке челленджей — вступить (показывает название)
     "btn_join_challenge_list": {
         "ru": "➕ {title}",
         "en": "➕ {title}",
         "tt": "➕ {title}",
     },
-    # Кнопка в списке челленджей — выйти (показывает название, явный предупреждающий emoji)
     "btn_leave_challenge": {
         "ru": "⛔️ Выйти из «{title}»",
         "en": "⛔️ Leave «{title}»",
@@ -572,29 +557,25 @@ Click the menu below to see all the features!""",
         "en": "📊 *{title}* — no responses today.",
         "tt": "📊 *{title}* — бүген җаваплар юк.",
     },
+
     # ── Wizard steps ────────────────────────────────────────────────────────
     "adm_wiz_start": {
         "ru": (
             "🆕 *Создание челленджа*\n\n"
-            "Шаг 1/8 — введи *slug* (технический идентификатор).\n\n"
-            "Slug — это внутреннее имя челленджа для разработчиков и базы данных. "
-            "Пользователи его *не видят*. Используется в логах, экспорте данных, "
-            "API и при поддержке (например: «баг в челлендже `daily-prayer`»).\n\n"
+            "Шаг 1 — введи *slug* (технический идентификатор).\n\n"
+            "Slug — внутреннее имя для базы данных. Пользователи его *не видят*.\n\n"
             "Только a-z, 0-9, дефис. Пример: `daily-prayer`"
         ),
         "en": (
             "🆕 *Create Challenge*\n\n"
-            "Step 1/8 — enter *slug* (technical identifier).\n\n"
-            "Slug is the internal name for developers and the database. "
-            "Users *never see it*. Used in logs, data exports, API, "
-            "and support (e.g. «bug in challenge `daily-prayer`»).\n\n"
+            "Step 1 — enter *slug* (technical identifier).\n\n"
+            "Slug is the internal name. Users *never see it*.\n\n"
             "Only a-z, 0-9, hyphen. Example: `daily-prayer`"
         ),
         "tt": (
             "🆕 *Чәлленҗ булдыру*\n\n"
-            "Адым 1/8 — *slug* языгыз (техник идентификатор).\n\n"
-            "Slug — эчке исем, кулланучылар *күрми*. "
-            "Логларда, экспортта, API-да кулланыла.\n\n"
+            "Адым 1 — *slug* языгыз (техник идентификатор).\n\n"
+            "Slug — эчке исем, кулланучылар *күрми*.\n\n"
             "Тик a-z, 0-9, дефис. Мисал: `daily-prayer`"
         ),
     },
@@ -609,14 +590,14 @@ Click the menu below to see all the features!""",
         "tt": "❌ Бу slug инде бар. Башкасын языгыз:",
     },
     "adm_wiz_title": {
-        "ru": "Slug: `{slug}`\n\nШаг 2/8 — введите *название* на русском:",
-        "en": "Slug: `{slug}`\n\nStep 2/8 — enter *title* in Russian:",
-        "tt": "Slug: `{slug}`\n\nАдым 2/8 — рус телендә *исем* языгыз:",
+        "ru": "Slug: `{slug}`\n\nШаг 2 — введите *название* на русском:",
+        "en": "Slug: `{slug}`\n\nStep 2 — enter *title* in Russian:",
+        "tt": "Slug: `{slug}`\n\nАдым 2 — рус телендә *исем* языгыз:",
     },
     "adm_wiz_description": {
-        "ru": "Название: *{title}*\n\nШаг 3/8 — введите *описание* (необязательно):",
-        "en": "Title: *{title}*\n\nStep 3/8 — enter *description* (optional):",
-        "tt": "Исем: *{title}*\n\nАдым 3/8 — *тасвирлама* языгыз (узып китеп була):",
+        "ru": "Название: *{title}*\n\nШаг 3 — введите *описание* (необязательно):",
+        "en": "Title: *{title}*\n\nStep 3 — enter *description* (optional):",
+        "tt": "Исем: *{title}*\n\nАдым 3 — *тасвирлама* языгыз (узып китеп була):",
     },
     "adm_wiz_skip": {
         "ru": "⏭ Пропустить",
@@ -624,19 +605,52 @@ Click the menu below to see all the features!""",
         "tt": "⏭ Китеп калдыру",
     },
     "adm_wiz_kind": {
-        "ru": "Шаг 4/8 — выберите *тип вопроса*:",
-        "en": "Step 4/8 — choose *question type*:",
-        "tt": "Адым 4/8 — *сорау төрен* сайлагыз:",
+        "ru": "Шаг 4 — выберите *тип вопроса*:",
+        "en": "Step 4 — choose *question type*:",
+        "tt": "Адым 4 — *сорау төрен* сайлагыз:",
     },
     "adm_wiz_question": {
-        "ru": "Тип: *{kind}*\n\nШаг 5/8 — введите *текст вопроса* на русском:",
-        "en": "Type: *{kind}*\n\nStep 5/8 — enter *question text* in Russian:",
-        "tt": "Төр: *{kind}*\n\nАдым 5/8 — рус телендә *сорау тексты* языгыз:",
+        "ru": "Тип: *{kind}*\n\nШаг 5 — введите *текст вопроса* на русском:",
+        "en": "Type: *{kind}*\n\nStep 5 — enter *question text* in Russian:",
+        "tt": "Төр: *{kind}*\n\nАдым 5 — рус телендә *сорау тексты* языгыз:",
     },
+
+    # ── NEW: poll options step ─────────────────────────────────────────────
+    "adm_wiz_options": {
+        "ru": (
+            "Шаг 6 — введите *варианты ответа* (каждый с новой строки, минимум 2, максимум 10).\n\n"
+            "Пример:\n`Всегда`\n`Иногда`\n`Редко`\n`Никогда`"
+        ),
+        "en": (
+            "Step 6 — enter *answer options* (one per line, min 2, max 10).\n\n"
+            "Example:\n`Always`\n`Sometimes`\n`Rarely`\n`Never`"
+        ),
+        "tt": (
+            "Адым 6 — *вариантлар* языгыз (яңа юлдан, иң кимендә 2, максимум 10).\n\n"
+            "Мисал:\n`Һәрвакыт`\n`Кайчак`\n`Сирәк`\n`Беркайчан`"
+        ),
+    },
+    "adm_wiz_options_invalid": {
+        "ru": "❌ Нужно минимум 2 варианта. Введите каждый с новой строки:",
+        "en": "❌ At least 2 options required. Enter each on a new line:",
+        "tt": "❌ Иң кимендә 2 вариант кирәк. Яңа юлдан языгыз:",
+    },
+    "adm_wiz_options_too_many": {
+        "ru": "❌ Максимум 10 вариантов.",
+        "en": "❌ Maximum 10 options.",
+        "tt": "❌ Максимум 10 вариант.",
+    },
+    "adm_wiz_options_preview": {
+        "ru": "Варианты ответа:",
+        "en": "Answer options:",
+        "tt": "Вариантлар:",
+    },
+    # ──────────────────────────────────────────────────────────────────────
+
     "adm_wiz_schedule": {
-        "ru": "Шаг 6/8 — время ежедневной отправки (ЧЧ:ММ, например `06:00`):",
-        "en": "Step 6/8 — daily send time (HH:MM, e.g. `06:00`):",
-        "tt": "Адым 6/8 — көнлек жибәрү вакыты (СС:ДД, мәс. `06:00`):",
+        "ru": "Время ежедневной отправки (ЧЧ:ММ, например `06:00`):",
+        "en": "Daily send time (HH:MM, e.g. `06:00`):",
+        "tt": "Көнлек жибәрү вакыты (СС:ДД, мәс. `06:00`):",
     },
     "adm_wiz_schedule_invalid": {
         "ru": "❌ Неверный формат. Введите ЧЧ:ММ, например `06:00`:",
@@ -644,9 +658,9 @@ Click the menu below to see all the features!""",
         "tt": "❌ Хаталы формат. СС:ДД языгыз, мәс. `06:00`:",
     },
     "adm_wiz_duration": {
-        "ru": "Шаг 7/8 — длительность в днях (например `40`):",
-        "en": "Step 7/8 — duration in days (e.g. `40`):",
-        "tt": "Адым 7/8 — озынлыгы көннәрдә (мәс. `40`):",
+        "ru": "Длительность в днях (например `40`):",
+        "en": "Duration in days (e.g. `40`):",
+        "tt": "Озынлыгы көннәрдә (мәс. `40`):",
     },
     "adm_wiz_duration_invalid": {
         "ru": "❌ Введи целое число от 1 до 3650.",
@@ -654,9 +668,9 @@ Click the menu below to see all the features!""",
         "tt": "❌ 1 дән 3650 кадәр сан языгыз.",
     },
     "adm_wiz_launch": {
-        "ru": "Шаг 8/8 — когда запустить челлендж?\n\nНажмите *Прямо сейчас* или введите дату по Москве:\n`ГГГГ-ММ-ДД ЧЧ:ММ`",
-        "en": "Step 8/8 — when to launch the challenge?\n\nTap *Right Now* or enter Moskow date:\n`YYYY-MM-DD HH:MM`",
-        "tt": "Адым 8/8 — сынауны кайчан башларга?\n\n*Хәзер үк* дип басыгыз яки Мәскәү вакытын языгыз:\n`ГГГГ-АА-КК СС:ДД`",
+        "ru": "Когда запустить челлендж?\n\nНажмите *Прямо сейчас* или введите дату по Москве:\n`ГГГГ-ММ-ДД ЧЧ:ММ`",
+        "en": "When to launch the challenge?\n\nTap *Right Now* or enter Moscow date:\n`YYYY-MM-DD HH:MM`",
+        "tt": "Сынауны кайчан башларга?\n\n*Хәзер үк* дип басыгыз яки Мәскәү вакытын языгыз:\n`ГГГГ-АА-КК СС:ДД`",
     },
     "adm_wiz_launch_invalid": {
         "ru": "❌ Неверный формат. Пример: `2025-03-20 09:00`",
@@ -717,13 +731,14 @@ Click the menu below to see all the features!""",
     "adm_ch_created": {
         "ru": "✅ Челлендж *{title}* (`{slug}`) создан!\nТип: `{kind}` | Время: `{time}` | Дней: {days}",
         "en": "✅ Challenge *{title}* (`{slug}`) created!\nType: `{kind}` | Time: `{time}` | Days: {days}",
-        "tt": "✅ Сынау*{title}* (`{slug}`) булдырылды!\nТөр: `{kind}` | Вакыт: `{time}` | Көннәр: {days}",
+        "tt": "✅ Сынау *{title}* (`{slug}`) булдырылды!\nТөр: `{kind}` | Вакыт: `{time}` | Көннәр: {days}",
     },
     "adm_wiz_cancelled": {
         "ru": "Отменено",
         "en": "Cancelled",
         "tt": "Кире кайтарылды",
     },
+
     # ── Broadcast ───────────────────────────────────────────────────────────
     "adm_broadcast_prompt": {
         "ru": "📣 *Рассылка*\n\nВведи текст сообщения (поддерживается Markdown):",
@@ -735,6 +750,7 @@ Click the menu below to see all the features!""",
         "en": "✅ Broadcast #{id} queued.",
         "tt": "✅ Рассылка #{id} чиратка куелды.",
     },
+
     # ── Translations wizard ──────────────────────────────────────────────────
     "adm_tr_title": {
         "ru": "🌐 *Переводы* — `{slug}`\n\nВыбери язык:",
@@ -756,6 +772,7 @@ Click the menu below to see all the features!""",
         "en": "✅ Translation to *{lang_name}* saved.",
         "tt": "✅ *{lang_name}* теленә тәрҗемә сакланды.",
     },
+
     # ── Edit wizard ──────────────────────────────────────────────────────────
     "adm_edit_menu_title": {
         "ru": "✏️ *Что редактируем?*",
@@ -767,6 +784,7 @@ Click the menu below to see all the features!""",
         "en": "Unknown field",
         "tt": "Билгесез урын",
     },
+
     # ── Back / Cancel ────────────────────────────────────────────────────────
     "btn_cancel": {
         "ru": "❌ Отмена",

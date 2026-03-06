@@ -95,11 +95,6 @@ def challenges_list_kb(
     user_participations: set,
     lang: str = "ru",
 ) -> InlineKeyboardMarkup:
-    """
-    Список челленджей для пользователя.
-    Slug скрыт — пользователь видит только название.
-    Кнопка выхода показывает имя челленджа чтобы не было сюрпризов.
-    """
     kb = InlineKeyboardBuilder()
     for c in challenges:
         is_in  = c["id"] in user_participations
@@ -119,7 +114,6 @@ def challenges_list_kb(
 
 
 def challenge_announce_kb(challenge_id: int, lang: str = "ru") -> InlineKeyboardMarkup:
-    """Announcement message: single 'Join' button."""
     kb = InlineKeyboardBuilder()
     kb.button(
         text=t("btn_join_challenge", lang),
@@ -183,19 +177,26 @@ def confirm_create_kb(lang: str = "ru") -> InlineKeyboardMarkup:
 def launch_time_kb(lang: str = "ru") -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text=t("btn_launch_now",   lang), callback_data="adm:ch:launch:now")
-    kb.button(text=t("adm_wiz_skip",     lang), callback_data="adm:ch:launch:now")
     kb.button(text=t("btn_cancel",       lang), callback_data="adm:ch:cancel_create")
     kb.adjust(1)
     return kb.as_markup()
 
 
-def edit_field_kb(lang: str = "ru") -> InlineKeyboardMarkup:
-    fields = [
+def edit_field_kb(lang: str = "ru", kind: str = "") -> InlineKeyboardMarkup:
+    """
+    Edit-field menu for the create wizard.
+    When kind == 'poll', an extra 'Options' row is shown.
+    """
+    fields: list[tuple[str, str]] = [
         ("Slug",         "adm:ch:edit_field:slug"),
         ("Название",     "adm:ch:edit_field:title_ru"),
         ("Описание",     "adm:ch:edit_field:description_ru"),
         ("Тип",          "adm:ch:edit_field:kind"),
         ("Вопрос",       "adm:ch:edit_field:question_ru"),
+    ]
+    if kind == "poll":
+        fields.append(("Варианты ответа", "adm:ch:edit_field:options_ru"))
+    fields += [
         ("Время",        "adm:ch:edit_field:schedule_time"),
         ("Длительность", "adm:ch:edit_field:duration_days"),
         (t("btn_nav_back", lang), "adm:ch:review"),

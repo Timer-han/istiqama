@@ -80,7 +80,9 @@ def _build_review(data: dict, lang: str = "ru") -> str:
     desc     = data.get("description_ru") or "—"
     kl       = kind_label(data.get("kind", ""), lang)
     launch   = data.get("launch_at_display") or t("adm_wiz_review_now", lang)
-    return t("adm_wiz_review", lang,
+    options  = data.get("options_ru", [])
+
+    text = t("adm_wiz_review", lang,
              slug=data.get("slug", "?"),
              title=data.get("title_ru", "?"),
              desc=desc, kind=kl,
@@ -88,6 +90,12 @@ def _build_review(data: dict, lang: str = "ru") -> str:
              time=data.get("schedule_time", "?"),
              days=data.get("duration_days", "?"),
              launch=launch)
+
+    if options:
+        options_lines = "\n".join(f"  • {o}" for o in options)
+        text += f"\n\n{t('adm_wiz_options_preview', lang)}\n{options_lines}"
+
+    return text
 
 
 async def _show_review(target, state: FSMContext, lang: str = "ru") -> None:
@@ -120,7 +128,6 @@ async def adm_panel_cb(cb: CallbackQuery, user_lang: str = "ru"):
 
 @router.callback_query(F.data == "adm:stats")
 async def adm_stats(cb: CallbackQuery, user_lang: str = "ru"):
-    """Обзорная статистика — все активные челленджи одним сообщением."""
     stats = await db.get_admin_stats()
     header = t("adm_stats_header", user_lang,
                 total=stats["total_users"], today=stats["active_today"])
@@ -135,8 +142,6 @@ async def adm_stats(cb: CallbackQuery, user_lang: str = "ru"):
         rows.append(t("adm_stats_row", user_lang,
                       title=title, resp=c["responses"], avg=avg, max=c["max_count"]))
 
-    # Кнопка "Детально" для каждого челленджа
-    from aiogram.utils.keyboard import InlineKeyboardBuilder
     kb = InlineKeyboardBuilder()
     for c in stats["challenges"]:
         meta = c["metadata"]
@@ -157,7 +162,6 @@ async def adm_stats(cb: CallbackQuery, user_lang: str = "ru"):
         parse_mode="Markdown",
     )
     await cb.answer()
-
 
 
 # ─── Challenge list ────────────────────────────────────────────────────────
@@ -251,7 +255,6 @@ async def adm_challenge_stats(cb: CallbackQuery, user_lang: str = "ru"):
 
 @router.callback_query(F.data.startswith("adm:ch:detail:"))
 async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
-    """Детальная статистика по одному челленджу."""
     challenge_id = int(cb.data.split(":")[-1])
     c = await db.get_challenge_by_id(challenge_id)
     if not c:
@@ -267,7 +270,6 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
 
     lines = [t("adm_detail_header", lang, title=title)]
 
-    # Участники и response rate
     lines.append(t("adm_detail_participants", lang,
                    active=detail["active_participants"],
                    total=detail["total_participants"],
@@ -275,7 +277,6 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
                    rate=detail["response_rate_today"],
                    week=detail["answered_week"]))
 
-    # Специфика по kind
     if kind == "yes_no":
         today_pct = detail.get("yes_pct_today")
         week_pct  = detail.get("yes_pct_week")
@@ -292,7 +293,6 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
     elif kind == "poll":
         dist = detail.get("distribution_week", {})
         if dist:
-            # Получить тексты вариантов
             meta = c["metadata"]
             if isinstance(meta, str):
                 meta = json.loads(meta)
@@ -309,7 +309,6 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
                 dist_lines.append(f"  • {label}: {cnt}× ({pct}%)")
             lines.append("📋 За неделю:\n" + "\n".join(dist_lines) + "\n")
 
-    # Динамика по дням
     daily = detail.get("daily_7", [])
     if daily:
         lines.append(t("adm_detail_daily_header", lang))
@@ -325,7 +324,6 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
                 lines.append(t("adm_detail_daily_row_plain", lang,
                                day=day_str, count=row["count"]))
 
-    # Топ участников (count/scale)
     top = detail.get("top_users", [])
     if top:
         lines.append(t("adm_detail_top_header", lang))
@@ -336,13 +334,11 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
 
     text = "\n".join(lines)
 
-    # Кнопки назад
     from aiogram.utils.keyboard import InlineKeyboardBuilder as _IKB
     kb = _IKB()
     kb.button(text=t("btn_nav_back", lang), callback_data=f"adm:ch:view:{challenge_id}")
     await cb.message.edit_text(text, reply_markup=kb.as_markup(), parse_mode="Markdown")
     await cb.answer()
-
 
 
 # ─── Create challenge wizard ───────────────────────────────────────────────
@@ -483,12 +479,41 @@ async def create_question(msg: Message, state: FSMContext, user_lang: str = "ru"
         await state.update_data(edit_mode=False)
         await _show_review(msg, state, lang)
         return
+    # ── FIX: if kind is poll, ask for options before schedule ──
+    if data.get("kind") == "poll":
+        await state.set_state(ChallengeCreateForm.options_ru)
+        await msg.answer(t("adm_wiz_options", lang),
+                         reply_markup=cancel_kb(lang), parse_mode="Markdown")
+    else:
+        await state.set_state(ChallengeCreateForm.schedule_time)
+        await msg.answer(t("adm_wiz_schedule", lang),
+                         reply_markup=cancel_kb(lang), parse_mode="Markdown")
+
+
+# Step 6 (poll only) – options
+@router.message(ChallengeCreateForm.options_ru)
+async def create_options(msg: Message, state: FSMContext, user_lang: str = "ru"):
+    lang = await _wlang(state, user_lang)
+    raw  = msg.text.strip()
+    options = [o.strip() for o in raw.split("\n") if o.strip()]
+    if len(options) < 2:
+        await msg.answer(t("adm_wiz_options_invalid", lang), parse_mode="Markdown")
+        return
+    if len(options) > 10:
+        await msg.answer(t("adm_wiz_options_too_many", lang), parse_mode="Markdown")
+        return
+    await state.update_data(options_ru=options)
+    data = await state.get_data()
+    if data.get("edit_mode"):
+        await state.update_data(edit_mode=False)
+        await _show_review(msg, state, lang)
+        return
     await state.set_state(ChallengeCreateForm.schedule_time)
     await msg.answer(t("adm_wiz_schedule", lang),
                      reply_markup=cancel_kb(lang), parse_mode="Markdown")
 
 
-# Step 6 – schedule_time
+# Step 6/7 – schedule_time
 @router.message(ChallengeCreateForm.schedule_time)
 async def create_schedule(msg: Message, state: FSMContext, user_lang: str = "ru"):
     lang = await _wlang(state, user_lang)
@@ -511,7 +536,7 @@ async def create_schedule(msg: Message, state: FSMContext, user_lang: str = "ru"
                      reply_markup=cancel_kb(lang), parse_mode="Markdown")
 
 
-# Step 7 – duration
+# Step 7/8 – duration
 @router.message(ChallengeCreateForm.duration_days)
 async def create_duration(msg: Message, state: FSMContext, user_lang: str = "ru"):
     lang = await _wlang(state, user_lang)
@@ -532,7 +557,7 @@ async def create_duration(msg: Message, state: FSMContext, user_lang: str = "ru"
                      reply_markup=launch_time_kb(lang), parse_mode="Markdown")
 
 
-# Step 8 – launch_at (button: now, or typed UTC datetime)
+# Step last – launch_at
 @router.callback_query(ChallengeCreateForm.launch_at, F.data == "adm:ch:launch:now")
 async def create_launch_now(cb: CallbackQuery, state: FSMContext, user_lang: str = "ru"):
     lang = await _wlang(state, user_lang)
@@ -554,7 +579,7 @@ async def create_launch_typed(msg: Message, state: FSMContext, user_lang: str = 
     except ValueError:
         await msg.answer(t("adm_wiz_launch_invalid", lang), parse_mode="Markdown")
         return
-    await state.update_data(launch_at=dt.isoformat(), launch_at_display=raw + " UTC")
+    await state.update_data(launch_at=dt.isoformat(), launch_at_display=raw + " МСК")
     await state.set_state(None)
     await _show_review(msg, state, lang)
 
@@ -578,9 +603,10 @@ async def adm_create_confirm(cb: CallbackQuery, state: FSMContext, user_lang: st
     description   = data.get("description_ru", "")
     kind          = data["kind"]
     question_ru   = data["question_ru"]
+    options_ru    = data.get("options_ru", [])   # ← FIX: persist poll options
     schedule_time = data["schedule_time"]
     duration_days = data["duration_days"]
-    launch_at_iso = data.get("launch_at")     # None → announce immediately
+    launch_at_iso = data.get("launch_at")
 
     metadata = {
         "translations": {
@@ -588,16 +614,16 @@ async def adm_create_confirm(cb: CallbackQuery, state: FSMContext, user_lang: st
                 "title":       title_ru,
                 "description": description,
                 "question":    question_ru,
-                "options":     [],
+                "options":     options_ru,   # ← FIX: stored in metadata
             }
         },
         "schedule_time": schedule_time,
         "duration_days": duration_days,
         "launch_at":     launch_at_iso,
-        "announced":     False,     # scheduler will flip to True after sending
+        "announced":     False,
     }
 
-    c = await db.create_challenge(slug, kind, metadata)
+    await db.create_challenge(slug, kind, metadata)
     challenges = await db.fetch_all_challenges()
     await cb.message.edit_text(
         t("adm_ch_created", lang,
@@ -606,17 +632,17 @@ async def adm_create_confirm(cb: CallbackQuery, state: FSMContext, user_lang: st
         reply_markup=admin_challenges_list_kb(challenges, lang),
         parse_mode="Markdown",
     )
-    await cb.answer(t("adm_ch_created", lang,
-                      title=title_ru, slug=slug, kind=kind,
-                      time=schedule_time, days=duration_days)[:200])
+    await cb.answer()
 
 
 @router.callback_query(F.data == "adm:ch:edit_menu")
-async def adm_edit_menu(cb: CallbackQuery, user_lang: str = "ru"):
+async def adm_edit_menu(cb: CallbackQuery, state: FSMContext, user_lang: str = "ru"):
     lang = user_lang
+    data = await state.get_data()
+    kind = data.get("kind", "")
     await cb.message.edit_text(
         t("adm_edit_menu_title", lang),
-        reply_markup=edit_field_kb(lang), parse_mode="Markdown",
+        reply_markup=edit_field_kb(lang, kind=kind), parse_mode="Markdown",
     )
     await cb.answer()
 
@@ -633,6 +659,7 @@ async def adm_edit_field(cb: CallbackQuery, state: FSMContext, user_lang: str = 
         "description_ru": ChallengeCreateForm.description_ru,
         "kind":           ChallengeCreateForm.kind,
         "question_ru":    ChallengeCreateForm.question_ru,
+        "options_ru":     ChallengeCreateForm.options_ru,
         "schedule_time":  ChallengeCreateForm.schedule_time,
         "duration_days":  ChallengeCreateForm.duration_days,
     }
@@ -642,6 +669,7 @@ async def adm_edit_field(cb: CallbackQuery, state: FSMContext, user_lang: str = 
         "description_ru": t("adm_wiz_description",     lang, title="…"),
         "kind":           t("adm_wiz_kind",             lang),
         "question_ru":    t("adm_wiz_question",        lang, kind="…"),
+        "options_ru":     t("adm_wiz_options",         lang),
         "schedule_time":  t("adm_wiz_schedule",        lang),
         "duration_days":  t("adm_wiz_duration",        lang),
     }

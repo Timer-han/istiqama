@@ -228,8 +228,14 @@ async def set_lang(cb: CallbackQuery, db_user=None):
         return
     await db.update_user_lang(db_user["id"], lang_code)
     label = LANG_LABELS.get(lang_code, lang_code)
-    await cb.answer(t("lang_set", lang_code, lang_label=label))
-    await cb.message.edit_text(t("lang_set", lang_code, lang_label=label))
+    confirmation = t("lang_set", lang_code, lang_label=label)
+    await cb.answer(confirmation)
+    await cb.message.edit_text(confirmation)
+    # ── FIX: immediately push the new reply-keyboard in the chosen language ──
+    await cb.message.answer(
+        t("main_menu_prompt", lang_code),
+        reply_markup=_main_kb(cb.from_user.id, lang_code),
+    )
 
 
 @router.message(F.text.startswith("/timezone "))
@@ -303,7 +309,6 @@ async def handle_answer(
         t("answer_recorded", user_lang, value=value, title=title),
         parse_mode="Markdown")
 
-    # Пометить в очереди как отвеченный → разблокировать следующий вопрос
     await db.mark_queue_answered(db_user["id"], challenge_id, today)
     await _maybe_send_next(bot, state, db_user, challenge_id, today, user_lang)
 
@@ -390,13 +395,6 @@ async def _maybe_send_next(
     today: date,
     user_lang: str,
 ) -> None:
-    """
-    После ответа на answered_challenge_id:
-    - Проверить, есть ли следующий НЕОТПРАВЛЕННЫЙ вопрос в том же батче.
-    - Если есть — отправить и пометить sent_at.
-    - Если нет — ничего не делать.
-    - Не запускать для ответов за прошлые дни (get_next_after_answer проверяет сам).
-    """
     next_item = await db.get_next_after_answer(
         db_user["id"], answered_challenge_id, today,
         tz_str=db_user.get("timezone", "UTC"),
