@@ -6,11 +6,9 @@ import json
 import logging
 
 from adapters.storage_postgres import fetch, fetchrow, execute, get_pool
+from constants import AGGREGATOR_BATCH_SIZE, AGGREGATOR_SLEEP_SECONDS
 
 logger = logging.getLogger(__name__)
-
-BATCH_SIZE = 200
-SLEEP_SECONDS = 30
 
 
 async def aggregator_task() -> None:
@@ -20,7 +18,7 @@ async def aggregator_task() -> None:
             await _run_aggregation()
         except Exception as exc:
             logger.exception("Aggregator error: %s", exc)
-        await asyncio.sleep(SLEEP_SECONDS)
+        await asyncio.sleep(AGGREGATOR_SLEEP_SECONDS)
 
 
 async def _run_aggregation() -> None:
@@ -37,7 +35,7 @@ async def _run_aggregation() -> None:
         ORDER BY id
         LIMIT $2
         """,
-        last_id, BATCH_SIZE,
+        last_id, AGGREGATOR_BATCH_SIZE,
     )
 
     if not events:

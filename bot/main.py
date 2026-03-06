@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 async def main() -> None:
     logger.info("Connecting to database …")
-    await init_pool(config.db_dsn)
+    await init_pool(config.db_dsn, min_size=config.db_pool_min, max_size=config.db_pool_max)
     logger.info("Database connected.")
 
     storage = MemoryStorage()
@@ -39,7 +39,6 @@ async def main() -> None:
     )
     dp = Dispatcher(storage=storage)
 
-    # Inject db_user and user_lang into every handler via middleware
     dp.update.middleware(UserMiddleware())
 
     # Admin router first (has IsAdmin filter)
@@ -49,7 +48,7 @@ async def main() -> None:
     loop = asyncio.get_event_loop()
     loop.create_task(scheduler_task(bot, storage=storage, interval=config.scheduler_interval))
     loop.create_task(aggregator_task())
-    loop.create_task(outbox_task(bot))
+    loop.create_task(outbox_task(bot, rate_limit=config.outbox_rate_limit))
 
     logger.info("Starting long-polling …")
     try:

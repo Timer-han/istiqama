@@ -14,6 +14,7 @@ import services.db as db
 from bot.config import config
 from bot.filters import ButtonText
 from bot.i18n import t, user_lang as _user_lang, LANG_LABELS
+from constants import DEFAULT_TIMEZONE
 from bot.keyboards import (
     user_main_kb,
     admin_main_kb,
@@ -29,8 +30,6 @@ from bot.utils import challenge_text, challenge_options, tz_from_coords
 
 logger = logging.getLogger(__name__)
 router = Router()
-
-DEFAULT_TIMEZONE = "Europe/Moscow"
 
 
 def _main_kb(telegram_id: int, lang: str):
@@ -62,16 +61,7 @@ async def my_stats(msg: Message, db_user=None, user_lang: str = "ru"):
         await msg.answer(t("start_first"))
         return
 
-    participations = await db.fetch(
-        """
-        SELECT cp.challenge_id, c.slug, c.kind, c.metadata
-        FROM challenge_participants cp
-        JOIN challenges c ON c.id = cp.challenge_id
-        WHERE cp.user_id = $1 AND cp.active = TRUE
-        ORDER BY c.id
-        """,
-        db_user["id"],
-    )
+    participations = await db.get_active_participations_for_user(db_user["id"])
 
     if not participations:
         await msg.answer(t("stats_no_active", user_lang))
@@ -147,7 +137,7 @@ def _fmt_poll(title: str, s: dict, challenge, lang: str) -> str:
         except (ValueError, IndexError):
             label = idx_str
         pct = round(cnt / total * 100) if total else 0
-        lines.append(f"  • {label}: {cnt}× ({pct}%)")
+        lines.append(t("poll_dist_row", lang, label=label, cnt=cnt, pct=pct))
     return t("stats_poll_block", lang,
              title=title, total=total,
              dist_str="\n".join(lines) if lines else "—")
@@ -231,7 +221,6 @@ async def set_lang(cb: CallbackQuery, db_user=None):
     confirmation = t("lang_set", lang_code, lang_label=label)
     await cb.answer(confirmation)
     await cb.message.edit_text(confirmation)
-    # ── FIX: immediately push the new reply-keyboard in the chosen language ──
     await cb.message.answer(
         t("main_menu_prompt", lang_code),
         reply_markup=_main_kb(cb.from_user.id, lang_code),

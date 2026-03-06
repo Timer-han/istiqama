@@ -16,11 +16,14 @@ from bot.i18n import t, kind_label, SUPPORTED_LANGS
 from bot.keyboards import challenge_announce_kb
 from bot.states import CountAnswerState
 from bot.utils import challenge_text
+from constants import (
+    SCHEDULER_INACTIVITY_DAYS,
+    SCHEDULER_ANNOUNCE_RATE,
+    DB_PARTITION_MONTHS_AHEAD,
+    DB_DUE_PARTICIPANTS_LIMIT,
+)
 
 logger = logging.getLogger(__name__)
-
-INACTIVITY_DAYS = 3
-ANNOUNCE_RATE   = 0.05
 
 
 async def scheduler_task(
@@ -35,7 +38,7 @@ async def scheduler_task(
         try:
             today = date.today()
             if _last_partition_check != today:
-                await db.ensure_event_partitions(months_ahead=3)
+                await db.ensure_event_partitions(months_ahead=DB_PARTITION_MONTHS_AHEAD)
                 _last_partition_check = today
                 logger.info("Partition check done for %s", today)
 
@@ -53,7 +56,7 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
     if expired:
         logger.info("Deactivated %d expired challenge(s)", expired)
 
-    rows = await db.get_due_participants()
+    rows = await db.get_due_participants(limit=DB_DUE_PARTICIPANTS_LIMIT)
     if not rows:
         return
 
@@ -107,10 +110,6 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
         return
 
     # ── Phase 2: добавить в очередь + обновить next_dispatch_at ─────────────
-    #
-    # ВАЖНО: next_dispatch_at обновляется здесь, ДО отправки.
-    # Это гарантирует, что следующий тик шедулера не подберёт
-    # того же пользователя, даже если Phase 3 выбросит исключение.
 
     for user_id, udata in users.items():
         today  = udata["today"]
@@ -133,21 +132,10 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
                 )
 
     # ── Phase 3: отправить первый вопрос (если нет ЛЮБОГО неотвеченного) ──────
-    #
-    # Проверяем ГЛОБАЛЬНО по пользователю, а не по батчу.
-    # Если у пользователя отправлен хоть один вопрос и не получен ответ —
-    # не слать ничего нового, вне зависимости от schedule_time.
-    #
-    # Это гарантирует последовательность: Q1 → ответ → Q2 → ответ → Q3...
-    # даже если у них разные schedule_time (12:46 и 12:47).
-    #
-    # В _maybe_send_next (handlers) используется батч-логика: ответ на
-    # утренний вопрос не триггерит вечерний вопрос другого батча.
 
     for user_id, udata in users.items():
         today = udata["today"]
 
-        # Глобальная проверка: есть ли хоть один неотвеченный вопрос?
         if await db.has_any_unanswered_today(user_id, today):
             logger.debug(
                 "user_id=%d: unanswered question pending (any batch), skipping",
@@ -155,7 +143,6 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
             )
             continue
 
-        # Ищем первый неотправленный вопрос по всем батчам (по порядку schedule_time)
         sent_one = False
         for schedule_time in sorted(udata["batches"]):
             if sent_one:
@@ -168,7 +155,7 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
                 )
                 continue
             await _send_queue_item(bot, storage, udata, next_item, today)
-            sent_one = True  # отправили один — стоп, ждём ответа
+            sent_one = True
 
 
 async def _send_queue_item(
@@ -178,16 +165,6 @@ async def _send_queue_item(
     item,
     today: date,
 ) -> bool:
-    """
-    Отправить вопрос из очереди.
-    Возвращает True при успехе.
-
-    Порядок операций:
-      1. Отправить сообщение
-      2. Пометить sent_at (ТОЛЬКО если отправка успешна)
-      3. Обновить last_dispatch_day
-      4. Для count — поставить FSM
-    """
     user_id     = udata["user_id"]
     telegram_id = udata["telegram_id"]
     lang        = udata["lang"]
@@ -209,7 +186,6 @@ async def _send_queue_item(
         logger.warning("Failed send %s → %d: %s", item["slug"], telegram_id, exc)
         return False
 
-    # Только после успешной отправки — обновляем БД
     await db.mark_queue_sent(item["queue_id"])
     await db.mark_last_dispatch_day(user_id, item["challenge_id"], today)
     logger.info("Sent %s → user_id=%d", item["slug"], user_id)
@@ -229,7 +205,7 @@ async def _set_count_state(
 
 
 def _is_inactive(row, today_local: date, tz) -> bool:
-    cutoff       = today_local - timedelta(days=INACTIVITY_DAYS - 1)
+    cutoff       = today_local - timedelta(days=SCHEDULER_INACTIVITY_DAYS - 1)
     joined_local = row["cp_joined_at"].astimezone(tz).date()
     if joined_local >= cutoff:
         return False
@@ -285,7 +261,7 @@ async def _run_announcer(bot: Bot) -> None:
             except Exception as exc:
                 logger.warning("Announce %s → %d: %s", slug, user["telegram_id"], exc)
                 failed += 1
-            await asyncio.sleep(ANNOUNCE_RATE)
+            await asyncio.sleep(SCHEDULER_ANNOUNCE_RATE)
 
         await db.mark_challenge_announced(challenge["id"])
         logger.info("Announced '%s': %d sent, %d failed", slug, sent, failed)

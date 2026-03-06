@@ -66,11 +66,9 @@ def lang_select_kb() -> InlineKeyboardMarkup:
 # ─── Inline answer keyboards ──────────────────────────────────────────────
 
 def yes_no_kb(challenge_id: int, lang: str = "ru") -> InlineKeyboardMarkup:
-    yes_texts = {"ru": "✅ Да",  "en": "✅ Yes", "tt": "✅ Әйе"}
-    no_texts  = {"ru": "❌ Нет", "en": "❌ No",  "tt": "❌ Юк"}
     kb = InlineKeyboardBuilder()
-    kb.button(text=yes_texts.get(lang, "✅ Да"),  callback_data=f"ans:{challenge_id}:yes")
-    kb.button(text=no_texts.get(lang, "❌ Нет"),  callback_data=f"ans:{challenge_id}:no")
+    kb.button(text=t("btn_yes", lang), callback_data=f"ans:{challenge_id}:yes")
+    kb.button(text=t("btn_no",  lang), callback_data=f"ans:{challenge_id}:no")
     return kb.as_markup()
 
 
@@ -186,20 +184,21 @@ def edit_field_kb(lang: str = "ru", kind: str = "") -> InlineKeyboardMarkup:
     """
     Edit-field menu for the create wizard.
     When kind == 'poll', an extra 'Options' row is shown.
+    All labels are pulled from i18n.
     """
     fields: list[tuple[str, str]] = [
-        ("Slug",         "adm:ch:edit_field:slug"),
-        ("Название",     "adm:ch:edit_field:title_ru"),
-        ("Описание",     "adm:ch:edit_field:description_ru"),
-        ("Тип",          "adm:ch:edit_field:kind"),
-        ("Вопрос",       "adm:ch:edit_field:question_ru"),
+        (t("adm_field_slug",        lang), "adm:ch:edit_field:slug"),
+        (t("adm_field_title",       lang), "adm:ch:edit_field:title_ru"),
+        (t("adm_field_description", lang), "adm:ch:edit_field:description_ru"),
+        (t("adm_field_kind",        lang), "adm:ch:edit_field:kind"),
+        (t("adm_field_question",    lang), "adm:ch:edit_field:question_ru"),
     ]
     if kind == "poll":
-        fields.append(("Варианты ответа", "adm:ch:edit_field:options_ru"))
+        fields.append((t("adm_field_options", lang), "adm:ch:edit_field:options_ru"))
     fields += [
-        ("Время",        "adm:ch:edit_field:schedule_time"),
-        ("Длительность", "adm:ch:edit_field:duration_days"),
-        (t("btn_nav_back", lang), "adm:ch:review"),
+        (t("adm_field_schedule", lang), "adm:ch:edit_field:schedule_time"),
+        (t("adm_field_duration", lang), "adm:ch:edit_field:duration_days"),
+        (t("btn_nav_back",       lang), "adm:ch:review"),
     ]
     kb = InlineKeyboardBuilder()
     for label, cd in fields:

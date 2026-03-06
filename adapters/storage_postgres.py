@@ -4,13 +4,14 @@ from __future__ import annotations
 import asyncpg
 from typing import Optional, List, Any
 
+from constants import DB_POOL_MIN_SIZE, DB_POOL_MAX_SIZE
 
 _pool: Optional[asyncpg.Pool] = None
 
 
-async def init_pool(dsn: str) -> None:
+async def init_pool(dsn: str, min_size: int = DB_POOL_MIN_SIZE, max_size: int = DB_POOL_MAX_SIZE) -> None:
     global _pool
-    _pool = await asyncpg.create_pool(dsn, min_size=2, max_size=10)
+    _pool = await asyncpg.create_pool(dsn, min_size=min_size, max_size=max_size)
 
 
 async def close_pool() -> None:

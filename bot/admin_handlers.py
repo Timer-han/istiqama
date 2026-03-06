@@ -16,6 +16,13 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 import services.db as db
 from bot.config import config
 from bot.i18n import t, user_lang as _user_lang, LANG_LABELS, kind_label
+from constants import (
+    TITLE_MIN_LEN, TITLE_MAX_LEN,
+    DESCRIPTION_MAX_LEN,
+    QUESTION_MIN_LEN, QUESTION_MAX_LEN,
+    POLL_OPTIONS_MIN, POLL_OPTIONS_MAX,
+    DURATION_MIN_DAYS, DURATION_MAX_DAYS,
+)
 
 from bot.keyboards import (
     admin_panel_kb,
@@ -66,14 +73,13 @@ def _challenge_card(c, meta: dict, lang: str = "ru") -> str:
     duration    = meta.get("duration_days", "?")
     status_str  = t("adm_ch_status_active", lang) if c["active"] else t("adm_ch_status_inactive", lang)
     launch_at   = meta.get("launch_at")
-    launch_str  = f"\nЗапуск: `{launch_at}`" if launch_at else ""
-    return (
-        f"🧩 *{title}*\n_{description}_\n\n"
-        f"Slug: `{c['slug']}`\nТип: `{c['kind']}`\n"
-        f"Время: `{schedule}`\nДлительность: {duration} дней\n"
-        f"Статус: {status_str}{launch_str}\n\n"
-        f"Вопрос: _{question}_"
-    )
+    launch_str  = t("adm_ch_launch_str", lang, launch_at=launch_at) if launch_at else ""
+    return t("adm_ch_card", lang,
+             title=title, description=description,
+             slug=c["slug"], kind=c["kind"],
+             schedule=schedule, duration=duration,
+             status=status_str, launch=launch_str,
+             question=question)
 
 
 def _build_review(data: dict, lang: str = "ru") -> str:
@@ -150,7 +156,7 @@ async def adm_stats(cb: CallbackQuery, user_lang: str = "ru"):
         tr    = meta.get("translations", {})
         title = (tr.get(user_lang) or tr.get("ru", {})).get("title", c["slug"])
         kb.button(
-            text=f"🔍 {title}",
+            text=t("adm_btn_ch_stats_link", user_lang, title=title),
             callback_data=f"adm:ch:detail:{c['id']}",
         )
     kb.button(text=t("btn_nav_back", user_lang), callback_data="adm:panel")
@@ -306,8 +312,10 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
                 except (ValueError, IndexError):
                     label = opt_idx
                 pct = round(cnt / total_poll * 100) if total_poll else 0
-                dist_lines.append(f"  • {label}: {cnt}× ({pct}%)")
-            lines.append("📋 За неделю:\n" + "\n".join(dist_lines) + "\n")
+                dist_lines.append(t("poll_dist_row", lang, label=label, cnt=cnt, pct=pct))
+            lines.append(
+                t("adm_detail_poll_week_header", lang) + "\n" + "\n".join(dist_lines) + "\n"
+            )
 
     daily = detail.get("daily_7", [])
     if daily:
@@ -389,8 +397,8 @@ async def create_slug(msg: Message, state: FSMContext, user_lang: str = "ru"):
 async def create_title(msg: Message, state: FSMContext, user_lang: str = "ru"):
     lang  = await _wlang(state, user_lang)
     title = msg.text.strip()
-    if not 2 <= len(title) <= 80:
-        await msg.answer("❌ 2–80 символов.")
+    if not TITLE_MIN_LEN <= len(title) <= TITLE_MAX_LEN:
+        await msg.answer(t("err_title_len", lang))
         return
     await state.update_data(title_ru=title)
     data = await state.get_data()
@@ -412,8 +420,8 @@ async def create_title(msg: Message, state: FSMContext, user_lang: str = "ru"):
 async def create_description(msg: Message, state: FSMContext, user_lang: str = "ru"):
     lang = await _wlang(state, user_lang)
     desc = msg.text.strip()
-    if len(desc) > 600:
-        await msg.answer("❌ Max 600 chars.")
+    if len(desc) > DESCRIPTION_MAX_LEN:
+        await msg.answer(t("err_desc_len", lang))
         return
     await state.update_data(description_ru=desc)
     await _after_description(msg, state, lang)
@@ -470,8 +478,8 @@ async def create_kind(cb: CallbackQuery, state: FSMContext, user_lang: str = "ru
 async def create_question(msg: Message, state: FSMContext, user_lang: str = "ru"):
     lang = await _wlang(state, user_lang)
     q    = msg.text.strip()
-    if not 5 <= len(q) <= 300:
-        await msg.answer("❌ 5–300 символов.")
+    if not QUESTION_MIN_LEN <= len(q) <= QUESTION_MAX_LEN:
+        await msg.answer(t("err_question_len", lang))
         return
     await state.update_data(question_ru=q)
     data = await state.get_data()
@@ -479,7 +487,6 @@ async def create_question(msg: Message, state: FSMContext, user_lang: str = "ru"
         await state.update_data(edit_mode=False)
         await _show_review(msg, state, lang)
         return
-    # ── FIX: if kind is poll, ask for options before schedule ──
     if data.get("kind") == "poll":
         await state.set_state(ChallengeCreateForm.options_ru)
         await msg.answer(t("adm_wiz_options", lang),
@@ -496,10 +503,10 @@ async def create_options(msg: Message, state: FSMContext, user_lang: str = "ru")
     lang = await _wlang(state, user_lang)
     raw  = msg.text.strip()
     options = [o.strip() for o in raw.split("\n") if o.strip()]
-    if len(options) < 2:
+    if len(options) < POLL_OPTIONS_MIN:
         await msg.answer(t("adm_wiz_options_invalid", lang), parse_mode="Markdown")
         return
-    if len(options) > 10:
+    if len(options) > POLL_OPTIONS_MAX:
         await msg.answer(t("adm_wiz_options_too_many", lang), parse_mode="Markdown")
         return
     await state.update_data(options_ru=options)
@@ -542,7 +549,7 @@ async def create_duration(msg: Message, state: FSMContext, user_lang: str = "ru"
     lang = await _wlang(state, user_lang)
     try:
         days = int(msg.text.strip())
-        assert 1 <= days <= 3650
+        assert DURATION_MIN_DAYS <= days <= DURATION_MAX_DAYS
     except Exception:
         await msg.answer(t("adm_wiz_duration_invalid", lang))
         return
@@ -603,7 +610,7 @@ async def adm_create_confirm(cb: CallbackQuery, state: FSMContext, user_lang: st
     description   = data.get("description_ru", "")
     kind          = data["kind"]
     question_ru   = data["question_ru"]
-    options_ru    = data.get("options_ru", [])   # ← FIX: persist poll options
+    options_ru    = data.get("options_ru", [])
     schedule_time = data["schedule_time"]
     duration_days = data["duration_days"]
     launch_at_iso = data.get("launch_at")
@@ -614,7 +621,7 @@ async def adm_create_confirm(cb: CallbackQuery, state: FSMContext, user_lang: st
                 "title":       title_ru,
                 "description": description,
                 "question":    question_ru,
-                "options":     options_ru,   # ← FIX: stored in metadata
+                "options":     options_ru,
             }
         },
         "schedule_time": schedule_time,
@@ -753,8 +760,8 @@ async def adm_tr_select_lang(cb: CallbackQuery, state: FSMContext, user_lang: st
 async def adm_tr_title(msg: Message, state: FSMContext, user_lang: str = "ru"):
     lang  = await _wlang(state, user_lang)
     title = msg.text.strip()
-    if not 2 <= len(title) <= 80:
-        await msg.answer("❌ 2–80 символов.")
+    if not TITLE_MIN_LEN <= len(title) <= TITLE_MAX_LEN:
+        await msg.answer(t("err_title_len", lang))
         return
     data = await state.get_data()
     await state.update_data(tr_title=title)
@@ -769,7 +776,7 @@ async def adm_tr_question(msg: Message, state: FSMContext, user_lang: str = "ru"
     lang     = await _wlang(state, user_lang)
     question = msg.text.strip()
     if not 5 <= len(question) <= 300:
-        await msg.answer("❌ 5–300 символов.")
+        await msg.answer(t("err_question_len", lang))
         return
     data         = await state.get_data()
     await state.clear()

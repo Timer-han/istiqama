@@ -8,32 +8,29 @@ from aiogram import Bot
 
 import services.db as db
 from adapters.storage_postgres import fetch
+from constants import OUTBOX_RATE_LIMIT, OUTBOX_PROCESS_LIMIT, OUTBOX_SLEEP_SECONDS
 
 logger = logging.getLogger(__name__)
 
-RATE_LIMIT    = 20   # messages per second
-SLEEP_SECONDS = 5
 
-
-async def outbox_task(bot: Bot) -> None:
-    logger.info("Outbox task started")
+async def outbox_task(bot: Bot, rate_limit: int = OUTBOX_RATE_LIMIT) -> None:
+    logger.info("Outbox task started (rate_limit=%d msg/s)", rate_limit)
     while True:
         try:
-            await _process_outbox(bot)
+            await _process_outbox(bot, rate_limit=rate_limit)
         except Exception as exc:
             logger.exception("Outbox error: %s", exc)
-        await asyncio.sleep(SLEEP_SECONDS)
+        await asyncio.sleep(OUTBOX_SLEEP_SECONDS)
 
 
-async def _process_outbox(bot: Bot) -> None:
-    # Используем db.get_pending_outbox вместо дублирующего raw-запроса
-    messages = await db.get_pending_outbox(limit=5)
+async def _process_outbox(bot: Bot, rate_limit: int = OUTBOX_RATE_LIMIT) -> None:
+    messages = await db.get_pending_outbox(limit=OUTBOX_PROCESS_LIMIT)
 
     for msg in messages:
         await db.mark_outbox_sending(msg["id"])
         try:
             if msg["target"] == "all":
-                await _broadcast_all(bot, msg["text"])
+                await _broadcast_all(bot, msg["text"], rate_limit=rate_limit)
             else:
                 await bot.send_message(
                     chat_id=int(msg["target"]),
@@ -46,9 +43,9 @@ async def _process_outbox(bot: Bot) -> None:
             await db.mark_outbox_failed(msg["id"])
 
 
-async def _broadcast_all(bot: Bot, text: str) -> None:
+async def _broadcast_all(bot: Bot, text: str, rate_limit: int = OUTBOX_RATE_LIMIT) -> None:
     users = await fetch("SELECT telegram_id FROM users")
-    delay = 1.0 / RATE_LIMIT
+    delay = 1.0 / rate_limit
 
     for user in users:
         try:

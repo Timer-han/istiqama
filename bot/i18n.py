@@ -65,6 +65,18 @@ _S: dict[str, dict[str, str]] = {
         "tt": "◀ Артка",
     },
 
+    # ── Inline Yes / No answer buttons ────────────────────────────────────
+    "btn_yes": {
+        "ru": "✅ Да",
+        "en": "✅ Yes",
+        "tt": "✅ Әйе",
+    },
+    "btn_no": {
+        "ru": "❌ Нет",
+        "en": "❌ No",
+        "tt": "❌ Юк",
+    },
+
     # ── General ────────────────────────────────────────────────────────────
     "welcome": {
         "ru": """Ас-саляму алейкум, {name}!
@@ -226,6 +238,13 @@ Click the menu below to see all the features!""",
         "tt": "\n",
     },
 
+    # ── Poll distribution row (admin detail + user stats) ─────────────────
+    "poll_dist_row": {
+        "ru": "  • {label}: {cnt}× ({pct}%)",
+        "en": "  • {label}: {cnt}× ({pct}%)",
+        "tt": "  • {label}: {cnt}× ({pct}%)",
+    },
+
     # ── Admin challenge detail ─────────────────────────────────────────────
     "adm_detail_header": {
         "ru": "📊 *{title}* — подробная статистика\n",
@@ -268,6 +287,11 @@ Click the menu below to see all the features!""",
             "🏆 Максимум: *{max_ever}*\n"
         ),
     },
+    "adm_detail_poll_week_header": {
+        "ru": "📋 За неделю:",
+        "en": "📋 This week:",
+        "tt": "📋 Атна:",
+    },
     "adm_detail_daily_header": {
         "ru": "\n📆 *Последние 7 дней:*\n",
         "en": "\n📆 *Last 7 days:*\n",
@@ -307,6 +331,51 @@ Click the menu below to see all the features!""",
         "ru": "н/д",
         "en": "n/a",
         "tt": "юк",
+    },
+
+    # ── Admin stats: per-challenge link button ─────────────────────────────
+    "adm_btn_ch_stats_link": {
+        "ru": "🔍 {title}",
+        "en": "🔍 {title}",
+        "tt": "🔍 {title}",
+    },
+
+    # ── Admin challenge card (shown in challenge management view) ─────────────
+    "adm_ch_card": {
+        "ru": (
+            "🧩 *{title}*\n_{description}_\n\n"
+            "Slug: `{slug}`\n"
+            "Тип: `{kind}`\n"
+            "Время: `{schedule}`\n"
+            "Длительность: {duration} дней\n"
+            "Статус: {status}{launch}\n\n"
+            "Вопрос: _{question}_"
+        ),
+        "en": (
+            "🧩 *{title}*\n_{description}_\n\n"
+            "Slug: `{slug}`\n"
+            "Type: `{kind}`\n"
+            "Time: `{schedule}`\n"
+            "Duration: {duration} days\n"
+            "Status: {status}{launch}\n\n"
+            "Question: _{question}_"
+        ),
+        "tt": (
+            "🧩 *{title}*\n_{description}_\n\n"
+            "Slug: `{slug}`\n"
+            "Төр: `{kind}`\n"
+            "Вакыт: `{schedule}`\n"
+            "Озынлыгы: {duration} көн\n"
+            "Статус: {status}{launch}\n\n"
+            "Сорау: _{question}_"
+        ),
+    },
+
+    # ── Admin challenge card: launch date line ─────────────────────────────
+    "adm_ch_launch_str": {
+        "ru": "\nЗапуск: `{launch_at}`",
+        "en": "\nLaunch: `{launch_at}`",
+        "tt": "\nБашлану: `{launch_at}`",
     },
 
     # ── Challenges ─────────────────────────────────────────────────────────
@@ -614,8 +683,6 @@ Click the menu below to see all the features!""",
         "en": "Type: *{kind}*\n\nStep 5 — enter *question text* in Russian:",
         "tt": "Төр: *{kind}*\n\nАдым 5 — рус телендә *сорау тексты* языгыз:",
     },
-
-    # ── NEW: poll options step ─────────────────────────────────────────────
     "adm_wiz_options": {
         "ru": (
             "Шаг 6 — введите *варианты ответа* (каждый с новой строки, минимум 2, максимум 10).\n\n"
@@ -645,8 +712,6 @@ Click the menu below to see all the features!""",
         "en": "Answer options:",
         "tt": "Вариантлар:",
     },
-    # ──────────────────────────────────────────────────────────────────────
-
     "adm_wiz_schedule": {
         "ru": "Время ежедневной отправки (ЧЧ:ММ, например `06:00`):",
         "en": "Daily send time (HH:MM, e.g. `06:00`):",
@@ -739,6 +804,75 @@ Click the menu below to see all the features!""",
         "tt": "Кире кайтарылды",
     },
 
+    # ── Validation errors ────────────────────────────────────────────────────
+    "err_title_len": {
+        "ru": "❌ Длина названия: 2–80 символов.",
+        "en": "❌ Title length: 2–80 characters.",
+        "tt": "❌ Исем озынлыгы: 2–80 символ.",
+    },
+    "err_desc_len": {
+        "ru": "❌ Описание: максимум 600 символов.",
+        "en": "❌ Description: max 600 characters.",
+        "tt": "❌ Тасвирлама: максимум 600 символ.",
+    },
+    "err_question_len": {
+        "ru": "❌ Длина вопроса: 5–300 символов.",
+        "en": "❌ Question length: 5–300 characters.",
+        "tt": "❌ Сорау озынлыгы: 5–300 символ.",
+    },
+
+    # ── Edit-field menu labels ───────────────────────────────────────────────
+    "adm_edit_menu_title": {
+        "ru": "✏️ *Что редактируем?*",
+        "en": "✏️ *What to edit?*",
+        "tt": "✏️ *Нәрсәне үзгәртәбез?*",
+    },
+    "adm_edit_field_unknown": {
+        "ru": "Неизвестное поле",
+        "en": "Unknown field",
+        "tt": "Билгесез урын",
+    },
+    "adm_field_slug": {
+        "ru": "Slug",
+        "en": "Slug",
+        "tt": "Slug",
+    },
+    "adm_field_title": {
+        "ru": "Название",
+        "en": "Title",
+        "tt": "Исем",
+    },
+    "adm_field_description": {
+        "ru": "Описание",
+        "en": "Description",
+        "tt": "Тасвирлама",
+    },
+    "adm_field_kind": {
+        "ru": "Тип",
+        "en": "Type",
+        "tt": "Төр",
+    },
+    "adm_field_question": {
+        "ru": "Вопрос",
+        "en": "Question",
+        "tt": "Сорау",
+    },
+    "adm_field_options": {
+        "ru": "Варианты ответа",
+        "en": "Answer Options",
+        "tt": "Вариантлар",
+    },
+    "adm_field_schedule": {
+        "ru": "Время",
+        "en": "Time",
+        "tt": "Вакыт",
+    },
+    "adm_field_duration": {
+        "ru": "Длительность",
+        "en": "Duration",
+        "tt": "Озынлыгы",
+    },
+
     # ── Broadcast ───────────────────────────────────────────────────────────
     "adm_broadcast_prompt": {
         "ru": "📣 *Рассылка*\n\nВведи текст сообщения (поддерживается Markdown):",
@@ -771,18 +905,6 @@ Click the menu below to see all the features!""",
         "ru": "✅ Перевод на *{lang_name}* сохранён.",
         "en": "✅ Translation to *{lang_name}* saved.",
         "tt": "✅ *{lang_name}* теленә тәрҗемә сакланды.",
-    },
-
-    # ── Edit wizard ──────────────────────────────────────────────────────────
-    "adm_edit_menu_title": {
-        "ru": "✏️ *Что редактируем?*",
-        "en": "✏️ *What to edit?*",
-        "tt": "✏️ *Нәрсәне үзгәртәбез?*",
-    },
-    "adm_edit_field_unknown": {
-        "ru": "Неизвестное поле",
-        "en": "Unknown field",
-        "tt": "Билгесез урын",
     },
 
     # ── Back / Cancel ────────────────────────────────────────────────────────
