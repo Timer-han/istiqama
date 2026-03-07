@@ -30,8 +30,25 @@ services:
       DATABASE_URL: postgresql://istiqama:istiqama@db:5432/istiqama
       ADMIN_IDS: ${ADMIN_IDS:-}
       SCHEDULER_INTERVAL: ${SCHEDULER_INTERVAL:-60}
+      WEBAPP_URL: ${WEBAPP_URL:-}
     env_file:
       - .env
+
+  api:
+    build: .
+    restart: unless-stopped
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+      DATABASE_URL: postgresql://istiqama:istiqama@db:5432/istiqama
+      WEBAPP_URL: ${WEBAPP_URL:-}
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
 
 volumes:
   postgres_data:

@@ -36,8 +36,6 @@ class Config:
     scheduler_interval: int = field(
         default_factory=lambda: int(os.getenv("SCHEDULER_INTERVAL", "60"))
     )
-    # Maximum Telegram messages per second for broadcasts.
-    # Overrides the OUTBOX_RATE_LIMIT constant when set via env.
     outbox_rate_limit: int = field(
         default_factory=lambda: int(os.getenv("OUTBOX_RATE_LIMIT", str(OUTBOX_RATE_LIMIT)))
     )
@@ -46,6 +44,10 @@ class Config:
     )
     db_pool_max: int = field(
         default_factory=lambda: int(os.getenv("DB_POOL_MAX", str(DB_POOL_MAX_SIZE)))
+    )
+    # URL where the Telegram Mini App is hosted (served by the FastAPI service)
+    webapp_url: str = field(
+        default_factory=lambda: os.getenv("WEBAPP_URL", "")
     )
 
 

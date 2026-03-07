@@ -9,6 +9,7 @@ from aiogram import Router, F, Bot
 from aiogram.filters import CommandStart, StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message, CallbackQuery
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 
 import services.db as db
 from bot.config import config
@@ -41,16 +42,33 @@ def _main_kb(telegram_id: int, lang: str):
 @router.message(CommandStart())
 async def cmd_start(msg: Message, state: FSMContext):
     await state.clear()
-    tg   = msg.from_user
+    tg_user = msg.from_user
     user = await db.get_or_create_user(
-        telegram_id=tg.id,
-        username=tg.username,
-        display_name=tg.full_name,
+        telegram_id=tg_user.id,
+        username=tg_user.username,
+        display_name=tg_user.full_name,
         tz=DEFAULT_TIMEZONE,
     )
     lang = _user_lang(user)
-    await msg.answer(t("welcome", lang, name=user["display_name"]),
-                     reply_markup=_main_kb(tg.id, lang))
+
+    # Основное приветствие с reply-клавиатурой
+    await msg.answer(
+        t("welcome", lang, name=user["display_name"]),
+        reply_markup=_main_kb(tg_user.id, lang),
+    )
+
+    # Кнопка Mini App (только если WEBAPP_URL настроен)
+    if config.webapp_url:
+        inline_kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text=t("webapp_open_btn", lang),   # "🌙 Открыть Istiqama" / "🌙 Open Istiqama" / "🌙 Istiqama ачу"
+                web_app=WebAppInfo(url=config.webapp_url),
+            )
+        ]])
+        await msg.answer(
+            t("webapp_open_prompt", lang),         # "📱 Или откройте приложение:" / "📱 Or open the app:" / ...
+            reply_markup=inline_kb,
+        )
 
 
 # ─── Statistics ────────────────────────────────────────────────────────────

@@ -957,13 +957,17 @@ async def get_admin_challenge_detail(challenge_id: int) -> dict[str, Any]:
     }
 
     daily_rows = await fetch(
-        """
+        r"""
         SELECT
             local_day,
-            COUNT(*)                                                      AS cnt,
-            AVG((payload->>'value')::numeric)                             AS avg_val,
+            COUNT(*)                                                                 AS cnt,
+            AVG(
+                CASE WHEN payload->>'value' ~ '^-?\d+(\.\d+)?$'
+                     THEN (payload->>'value')::numeric
+                END
+            )                                                                        AS avg_val,
             COUNT(*) FILTER (WHERE payload->>'value' = 'yes') * 100.0
-                / NULLIF(COUNT(*), 0)                                     AS yes_pct
+                / NULLIF(COUNT(*), 0)                                                AS yes_pct
         FROM events
         WHERE challenge_id = $1 AND local_day >= $2
         GROUP BY local_day

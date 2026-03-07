@@ -918,6 +918,199 @@ Click the menu below to see all the features!""",
         "en": "◀ Back",
         "tt": "◀ Артка",
     },
+    
+    
+    # ── Mini App (Telegram WebApp) strings ────────────────────────────────────
+    # ── Greeting / subtitle ────────────────────────────────────────────────
+    "webapp_greeting": {
+        "ru": "Ас-саляму алейкум, {name}! 🌙",
+        "en": "As-salamu alaykum, {name}! 🌙",
+        "tt": "Әс-сәламү галәйкүм, {name}! 🌙",
+    },
+    "webapp_subtitle": {
+        "ru": "Ваши челленджи на сегодня",
+        "en": "Your challenges for today",
+        "tt": "Бүгенге сынауларыгыз",
+    },
+
+    # ── Generic UI ─────────────────────────────────────────────────────────
+    "webapp_loading": {
+        "ru": "Загрузка…",
+        "en": "Loading…",
+        "tt": "Йөкләнә…",
+    },
+    "webapp_error_load": {
+        "ru": "Ошибка загрузки",
+        "en": "Loading error",
+        "tt": "Йөкләнү хатасы",
+    },
+    "webapp_no_participation": {
+        "ru": "Вы не участвуете ни в одном челлендже",
+        "en": "You are not participating in any challenges",
+        "tt": "Сез бер сынауда да катнашмыйсыз",
+    },
+
+    # ── Home: answer button states ─────────────────────────────────────────
+    "webapp_btn_answer": {
+        "ru": "Ответить →",
+        "en": "Answer →",
+        "tt": "Яуап бир →",
+    },
+    "webapp_btn_done": {
+        "ru": "✅ Отвечено",
+        "en": "✅ Answered",
+        "tt": "✅ Яуапланды",
+    },
+    "webapp_btn_wait": {
+        "ru": "⏳ Ожидание",
+        "en": "⏳ Waiting",
+        "tt": "⏳ Көтү",
+    },
+
+    # ── Challenges screen ──────────────────────────────────────────────────
+    "webapp_btn_join": {
+        "ru": "✅ Вступить",
+        "en": "✅ Join",
+        "tt": "✅ Кушылу",
+    },
+    "webapp_btn_leave": {
+        "ru": "⛔ Выйти",
+        "en": "⛔ Leave",
+        "tt": "⛔ Чыгу",
+    },
+    "webapp_no_challenges_list": {
+        "ru": "Нет доступных челленджей",
+        "en": "No challenges available",
+        "tt": "Доступлы сынаулар юк",
+    },
+
+    # ── Settings screen ────────────────────────────────────────────────────
+    "webapp_btn_location": {
+        "ru": "📍 Обновить геолокацию",
+        "en": "📍 Update location",
+        "tt": "📍 Урынны яңарту",
+    },
+    "webapp_lang_header": {
+        "ru": "Язык интерфейса",
+        "en": "Interface language",
+        "tt": "Интерфейс теле",
+    },
+    "webapp_tz_label": {
+        "ru": "Часовой пояс",
+        "en": "Timezone",
+        "tt": "Вакыт зонасы",
+    },
+
+    # ── Answer overlay ─────────────────────────────────────────────────────
+    "webapp_btn_submit": {
+        "ru": "Готово",
+        "en": "Done",
+        "tt": "Әзер",
+    },
+    "webapp_already_answered": {
+        "ru": "Уже отвечено сегодня",
+        "en": "Already answered today",
+        "tt": "Бүген инде яуапланды",
+    },
+
+    # ── Nav bar labels ─────────────────────────────────────────────────────
+    "webapp_nav_today": {
+        "ru": "Сегодня",
+        "en": "Today",
+        "tt": "Бүген",
+    },
+    "webapp_nav_stats": {
+        "ru": "Статистика",
+        "en": "Stats",
+        "tt": "Статистика",
+    },
+    "webapp_nav_challenges": {
+        "ru": "Челленджи",
+        "en": "Challenges",
+        "tt": "Сынаулар",
+    },
+    "webapp_nav_settings": {
+        "ru": "Настройки",
+        "en": "Settings",
+        "tt": "Көйләүләр",
+    },
+
+    # ── Screen headers ─────────────────────────────────────────────────────
+    "webapp_header_stats": {
+        "ru": "📊 Статистика",
+        "en": "📊 Statistics",
+        "tt": "📊 Статистика",
+    },
+    "webapp_header_challenges": {
+        "ru": "🕌 Все челленджи",
+        "en": "🕌 All challenges",
+        "tt": "🕌 Барлык сынаулар",
+    },
+    "webapp_header_settings": {
+        "ru": "⚙️ Настройки",
+        "en": "⚙️ Settings",
+        "tt": "⚙️ Көйләүләр",
+    },
+
+    # ── Stats screen ───────────────────────────────────────────────────────
+    "webapp_no_stats": {
+        "ru": "Нет активных участий в челленджах",
+        "en": "No active challenge participations",
+        "tt": "Актив катнашулар юк",
+    },
+    "webapp_no_answers_yet": {
+        "ru": "Ответов ещё нет",
+        "en": "No answers yet",
+        "tt": "Яваплар юк әле",
+    },
+    "webapp_stat_yes_pct": {
+        "ru": "Да за всё время",
+        "en": "Yes all time",
+        "tt": "Гомуми Әйе",
+    },
+    "webapp_stat_days": {
+        "ru": "Дней с ответом",
+        "en": "Days answered",
+        "tt": "Яуап биргән көннәр",
+    },
+    "webapp_stat_streak": {
+        "ru": "Серия сейчас",
+        "en": "Current streak",
+        "tt": "Хәзерге серия",
+    },
+    "webapp_stat_record": {
+        "ru": "Рекорд",
+        "en": "Record",
+        "tt": "Рекорд",
+    },
+    "webapp_stat_avg7": {
+        "ru": "Среднее за 7 дней",
+        "en": "Avg last 7 days",
+        "tt": "7 көн уртача",
+    },
+    "webapp_stat_avg_all": {
+        "ru": "Среднее за всё время",
+        "en": "All-time average",
+        "tt": "Гомуми уртача",
+    },
+    "webapp_stat_max": {
+        "ru": "Максимум",
+        "en": "Maximum",
+        "tt": "Максимум",
+    },
+
+    # ── Bot button: open Mini App ──────────────────────────────────────────
+    "webapp_open_btn": {
+        "ru": "🌙 Открыть Istiqama",
+        "en": "🌙 Open Istiqama",
+        "tt": "🌙 Istiqama ачу",
+    },
+    "webapp_open_prompt": {
+        "ru": "📱 Или откройте приложение:",
+        "en": "📱 Or open the app:",
+        "tt": "📱 Яки кушымтаны ачыгыз:",
+    },
+
 }
 
 
