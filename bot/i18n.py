@@ -15,7 +15,7 @@ DEFAULT_LANG    = "ru"
 LANG_LABELS: dict[str, str] = {
     "ru": "🇷🇺 Русский",
     "en": "🇬🇧 English",
-    "tt": "🏴 Татарча",
+    "tt": "💚 Татарча",
 }
 
 KIND_LABELS: dict[str, dict[str, str]] = {
@@ -97,7 +97,7 @@ Click the menu below to see all the features!""",
 
 Бу — Istiqama боты, өммәтне үстерү өчен эшләнгән хәләл гадәтләр трекеры.
 
-Ботта син төрле коллектив һәм шәхси сынауларга кушыла аласың. Һәр көн сораулар киләчәк, ә чор ахырында үз прогрессыңны күрә алачаксыз!
+Ботта сез төрле коллектив һәм шәхси сынауларга кушыла аласыз. Һәр көн сораулар киләчәк, ә чор ахырында үз прогрессыңны күрә алачаксыз!
 
 Барлык мөмкинлекләрне күрү өчен астагы менюга басыгыз!""",
     },
@@ -131,12 +131,12 @@ Click the menu below to see all the features!""",
     "stats_detail_header": {
         "ru": "📊 *Моя статистика*\n",
         "en": "📊 *My Statistics*\n",
-        "tt": "📊 *Минем статистика*\n",
+        "tt": "📊 *Статистикам*\n",
     },
     "stats_no_active": {
         "ru": "У тебя нет активных участий в челленджах.",
         "en": "You are not participating in any challenges.",
-        "tt": "Сезнең актив чәлленҗләрегез юк.",
+        "tt": "Сезнең актив сынауларыгыз юк.",
     },
     "stats_no_answers_yet": {
         "ru": "_Ответов пока нет_",
@@ -265,7 +265,7 @@ Click the menu below to see all the features!""",
         "tt": (
             "👥 Катнашучылар: *{active}* актив / {total} барлыгы\n"
             "📬 Бүген: *{today}* ({rate}%)\n"
-            "📅 Атна: *{week}* уникаль\n"
+            "📅 Атнада: *{week}* уникаль\n"
         ),
     },
     "adm_detail_yesno": {
@@ -448,12 +448,12 @@ Click the menu below to see all the features!""",
     "answer_toast": {
         "ru": "✅ Записано!",
         "en": "✅ Recorded!",
-        "tt": "✅ Язылды!",
+        "tt": "✅ Язылган!",
     },
     "already_answered": {
         "ru": "Вы уже ответили на этот вопрос сегодня.",
         "en": "You have already answered this question today.",
-        "tt": "Сез бүген инде бу соруга җавап бирдегез.",
+        "tt": "Сез бүген бу соруга җавап бирдегез инде.",
     },
     "challenge_not_found": {
         "ru": "Челлендж не найден.",
@@ -465,7 +465,7 @@ Click the menu below to see all the features!""",
     "count_prompt": {
         "ru": "\n\n✏️ Введите число в ответ на это сообщение.",
         "en": "\n\n✏️ Reply to this message with a number.",
-        "tt": "\n\n✏️ Бу хәбәргә сан белән җавап языгыз.",
+        "tt": "\n\n✏️ Бу хәбәргә сан белән җавап бирегез.",
     },
     "count_recorded": {
         "ru": "✅ Записано {count} для *{title}*.",
@@ -475,7 +475,7 @@ Click the menu below to see all the features!""",
     "count_already_answered": {
         "ru": "Вы уже ответили сегодня.",
         "en": "You have already answered today.",
-        "tt": "Сез бүген инде җавап бирдегез.",
+        "tt": "Сез бүген җавап бирдегез инде.",
     },
     "count_multiple_pending": {
         "ru": "У вас несколько неотвеченных вопросов с числовым ответом. Ответьте через кнопку в нужном сообщении.\n\nОжидают:\n{list}",
@@ -517,7 +517,7 @@ Click the menu below to see all the features!""",
     "btn_leave_challenge": {
         "ru": "⛔️ Выйти из «{title}»",
         "en": "⛔️ Leave «{title}»",
-        "tt": "⛔️ «{title}» дән чыгу",
+        "tt": "⛔️ «{title}» чыгарга",
     },
 
     # ── Admin panel ────────────────────────────────────────────────────────
@@ -594,7 +594,7 @@ Click the menu below to see all the features!""",
     "adm_ch_btn_create": {
         "ru": "➕ Создать челлендж",
         "en": "➕ Create Challenge",
-        "tt": "➕ Сынау башларга",
+        "tt": "➕ Сынауны башларга",
     },
     "adm_ch_toggled_active": {
         "ru": "Челлендж активирован 🟢",
@@ -656,7 +656,7 @@ Click the menu below to see all the features!""",
     "adm_wiz_slug_taken": {
         "ru": "❌ Этот slug уже занят. Придумайте другой:",
         "en": "❌ This slug is already taken. Try another:",
-        "tt": "❌ Бу slug инде бар. Башкасын языгыз:",
+        "tt": "❌ Бу slug бар инде. Башкасын языгыз:",
     },
     "adm_wiz_title": {
         "ru": "Slug: `{slug}`\n\nШаг 2 — введите *название* на русском:",
@@ -671,7 +671,7 @@ Click the menu below to see all the features!""",
     "adm_wiz_skip": {
         "ru": "⏭ Пропустить",
         "en": "⏭ Skip",
-        "tt": "⏭ Китеп калдыру",
+        "tt": "⏭ Пропустить",
     },
     "adm_wiz_kind": {
         "ru": "Шаг 4 — выберите *тип вопроса*:",
@@ -693,19 +693,19 @@ Click the menu below to see all the features!""",
             "Example:\n`Always`\n`Sometimes`\n`Rarely`\n`Never`"
         ),
         "tt": (
-            "Адым 6 — *вариантлар* языгыз (яңа юлдан, иң кимендә 2, максимум 10).\n\n"
+            "Адым 6 — *вариантлар*ны языгыз (яңа юлдан, кимендә 2, максимум 10).\n\n"
             "Мисал:\n`Һәрвакыт`\n`Кайчак`\n`Сирәк`\n`Беркайчан`"
         ),
     },
     "adm_wiz_options_invalid": {
         "ru": "❌ Нужно минимум 2 варианта. Введите каждый с новой строки:",
         "en": "❌ At least 2 options required. Enter each on a new line:",
-        "tt": "❌ Иң кимендә 2 вариант кирәк. Яңа юлдан языгыз:",
+        "tt": "❌ Кимендә 2 вариант кирәк. Яңа юлдан языгыз:",
     },
     "adm_wiz_options_too_many": {
         "ru": "❌ Максимум 10 вариантов.",
         "en": "❌ Maximum 10 options.",
-        "tt": "❌ Максимум 10 вариант.",
+        "tt": "❌ Максимум 10 вариант була ала.",
     },
     "adm_wiz_options_preview": {
         "ru": "Варианты ответа:",
@@ -725,12 +725,12 @@ Click the menu below to see all the features!""",
     "adm_wiz_duration": {
         "ru": "Длительность в днях (например `40`):",
         "en": "Duration in days (e.g. `40`):",
-        "tt": "Озынлыгы көннәрдә (мәс. `40`):",
+        "tt": "Сынау озынлыгы (мәс. `40`):",
     },
     "adm_wiz_duration_invalid": {
         "ru": "❌ Введи целое число от 1 до 3650.",
         "en": "❌ Enter a whole number from 1 to 3650.",
-        "tt": "❌ 1 дән 3650 кадәр сан языгыз.",
+        "tt": "❌ 1дән 3650 кадәр булган сан кертегез.",
     },
     "adm_wiz_launch": {
         "ru": "Когда запустить челлендж?\n\nНажмите *Прямо сейчас* или введите дату по Москве:\n`ГГГГ-ММ-ДД ЧЧ:ММ`",
@@ -925,7 +925,7 @@ Click the menu below to see all the features!""",
     "webapp_greeting": {
         "ru": "Ас-саляму алейкум, {name}! 🌙",
         "en": "As-salamu alaykum, {name}! 🌙",
-        "tt": "Әс-сәламү галәйкүм, {name}! 🌙",
+        "tt": "Әс-сәламү гәләйкүм, {name}! 🌙",
     },
     "webapp_subtitle": {
         "ru": "Ваши челленджи на сегодня",
@@ -954,12 +954,12 @@ Click the menu below to see all the features!""",
     "webapp_btn_answer": {
         "ru": "Ответить →",
         "en": "Answer →",
-        "tt": "Яуап бир →",
+        "tt": "Җавап бир →",
     },
     "webapp_btn_done": {
         "ru": "✅ Отвечено",
         "en": "✅ Answered",
-        "tt": "✅ Яуапланды",
+        "tt": "✅ Җавап бирелде",
     },
     "webapp_btn_wait": {
         "ru": "⏳ Ожидание",
@@ -981,7 +981,7 @@ Click the menu below to see all the features!""",
     "webapp_no_challenges_list": {
         "ru": "Нет доступных челленджей",
         "en": "No challenges available",
-        "tt": "Доступлы сынаулар юк",
+        "tt": "Сынаулар юк",
     },
 
     # ── Settings screen ────────────────────────────────────────────────────
@@ -1010,7 +1010,7 @@ Click the menu below to see all the features!""",
     "webapp_already_answered": {
         "ru": "Уже отвечено сегодня",
         "en": "Already answered today",
-        "tt": "Бүген инде яуапланды",
+        "tt": "Бүген инде җавап бирелде",
     },
 
     # ── Nav bar labels ─────────────────────────────────────────────────────
@@ -1061,17 +1061,17 @@ Click the menu below to see all the features!""",
     "webapp_no_answers_yet": {
         "ru": "Ответов ещё нет",
         "en": "No answers yet",
-        "tt": "Яваплар юк әле",
+        "tt": "Җаваплар юк әле",
     },
     "webapp_stat_yes_pct": {
         "ru": "Да за всё время",
         "en": "Yes all time",
-        "tt": "Гомуми Әйе",
+        "tt": "Бөтен вакыт өчен Әйе",
     },
     "webapp_stat_days": {
         "ru": "Дней с ответом",
         "en": "Days answered",
-        "tt": "Яуап биргән көннәр",
+        "tt": "Җавап бирелгән көннәр",
     },
     "webapp_stat_streak": {
         "ru": "Серия сейчас",
@@ -1091,7 +1091,7 @@ Click the menu below to see all the features!""",
     "webapp_stat_avg_all": {
         "ru": "Среднее за всё время",
         "en": "All-time average",
-        "tt": "Гомуми уртача",
+        "tt": "Бөтен вакыт өчен уртак",
     },
     "webapp_stat_max": {
         "ru": "Максимум",
@@ -1103,7 +1103,7 @@ Click the menu below to see all the features!""",
     "webapp_open_btn": {
         "ru": "🌙 Открыть Istiqama",
         "en": "🌙 Open Istiqama",
-        "tt": "🌙 Istiqama ачу",
+        "tt": "🌙 Istiqamaны ачу",
     },
     "webapp_open_prompt": {
         "ru": "📱 Или откройте приложение:",
