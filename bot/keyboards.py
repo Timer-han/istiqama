@@ -1,8 +1,4 @@
-"""bot/keyboards.py – language-aware keyboard builders.
-
-Every function accepts `lang: str = "ru"` and uses i18n for button labels.
-Inline callback_data strings remain language-independent.
-"""
+"""bot/keyboards.py – language-aware keyboard builders."""
 from __future__ import annotations
 
 from typing import List
@@ -49,6 +45,7 @@ def admin_panel_kb(lang: str = "ru") -> InlineKeyboardMarkup:
     kb.button(text=t("adm_btn_broadcast",  lang), callback_data="adm:broadcast")
     kb.button(text=t("adm_btn_challenges", lang), callback_data="adm:challenges")
     kb.button(text=t("adm_btn_stats",      lang), callback_data="adm:stats")
+    kb.button(text=t("adm_btn_motivation", lang), callback_data="adm:motivation")
     kb.adjust(2)
     return kb.as_markup()
 
@@ -98,11 +95,11 @@ def challenges_list_kb(
         is_in  = c["id"] in user_participations
         title, _ = challenge_text(c, lang)
         if is_in:
-            label    = t("btn_leave_challenge", lang, title=title)
-            action   = "leave"
+            label  = t("btn_leave_challenge", lang, title=title)
+            action = "leave"
         else:
-            label    = t("btn_join_challenge_list", lang, title=title)
-            action   = "join"
+            label  = t("btn_join_challenge_list", lang, title=title)
+            action = "join"
         kb.button(
             text=label,
             callback_data=f"challenge:{action}:{c['id']}",
@@ -181,11 +178,6 @@ def launch_time_kb(lang: str = "ru") -> InlineKeyboardMarkup:
 
 
 def edit_field_kb(lang: str = "ru", kind: str = "") -> InlineKeyboardMarkup:
-    """
-    Edit-field menu for the create wizard.
-    When kind == 'poll', an extra 'Options' row is shown.
-    All labels are pulled from i18n.
-    """
     fields: list[tuple[str, str]] = [
         (t("adm_field_slug",        lang), "adm:ch:edit_field:slug"),
         (t("adm_field_title",       lang), "adm:ch:edit_field:title_ru"),
@@ -213,7 +205,29 @@ def back_to_panel_kb(lang: str = "ru") -> InlineKeyboardMarkup:
     return kb.as_markup()
 
 
+def motivation_cancel_kb(lang: str = "ru") -> InlineKeyboardMarkup:
+    """Cancel keyboard for motivation FSM — returns to motivation panel, not challenge list."""
+    kb = InlineKeyboardBuilder()
+    kb.button(text=t("btn_cancel", lang), callback_data="adm:motivation:cancel")
+    return kb.as_markup()
+
+
 def cancel_kb(lang: str = "ru") -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
     kb.button(text=t("btn_cancel", lang), callback_data="adm:ch:cancel_create")
+    return kb.as_markup()
+
+
+# ─── Motivation settings keyboard ────────────────────────────────────────
+
+def motivation_settings_kb(enabled: bool, lang: str = "ru") -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    if enabled:
+        kb.button(text=t("adm_motivation_btn_disable",  lang), callback_data="adm:motivation:toggle")
+    else:
+        kb.button(text=t("adm_motivation_btn_enable",   lang), callback_data="adm:motivation:toggle")
+    kb.button(text=t("adm_motivation_btn_set_time",     lang), callback_data="adm:motivation:set_time")
+    kb.button(text=t("adm_motivation_btn_send_now",     lang), callback_data="adm:motivation:send_now")
+    kb.button(text=t("btn_nav_back",                    lang), callback_data="adm:panel")
+    kb.adjust(2)
     return kb.as_markup()

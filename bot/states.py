@@ -8,10 +8,10 @@ class ChallengeCreateForm(StatesGroup):
     description_ru = State()
     kind           = State()
     question_ru    = State()
-    options_ru     = State()   # Step 6 — только для kind='poll'
+    options_ru     = State()   # только для kind='poll'
     schedule_time  = State()
     duration_days  = State()
-    launch_at      = State()   # Step last: immediate or specific UTC datetime
+    launch_at      = State()   # immediate or specific UTC datetime
 
 
 class ChallengeTranslateForm(StatesGroup):
@@ -28,3 +28,8 @@ class BroadcastForm(StatesGroup):
 class CountAnswerState(StatesGroup):
     """Active while waiting for a numeric reply to a count challenge."""
     waiting_for_count = State()
+
+
+class MotivationSettingsForm(StatesGroup):
+    """Admin FSM for setting motivation broadcast time."""
+    send_time = State()

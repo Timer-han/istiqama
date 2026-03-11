@@ -34,8 +34,9 @@ from bot.keyboards import (
     confirm_create_kb,
     edit_field_kb,
     launch_time_kb,
+    motivation_settings_kb,
 )
-from bot.states import ChallengeCreateForm, ChallengeTranslateForm, BroadcastForm
+from bot.states import ChallengeCreateForm, ChallengeTranslateForm, BroadcastForm, MotivationSettingsForm
 from bot.utils import challenge_text
 
 logger = logging.getLogger(__name__)
@@ -332,13 +333,7 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
                 lines.append(t("adm_detail_daily_row_plain", lang,
                                day=day_str, count=row["count"]))
 
-    top = detail.get("top_users", [])
-    if top:
-        lines.append(t("adm_detail_top_header", lang))
-        for i, u in enumerate(top, start=1):
-            lines.append(t("adm_detail_top_row", lang,
-                           pos=i, name=u["name"],
-                           answers=u["total_answers"], avg=u["avg_val"]))
+    # top_users removed — stats are anonymous
 
     text = "\n".join(lines)
 
@@ -347,6 +342,106 @@ async def adm_challenge_detail(cb: CallbackQuery, user_lang: str = "ru"):
     kb.button(text=t("btn_nav_back", lang), callback_data=f"adm:ch:view:{challenge_id}")
     await cb.message.edit_text(text, reply_markup=kb.as_markup(), parse_mode="Markdown")
     await cb.answer()
+
+
+# ─── Motivation settings ──────────────────────────────────────────────────
+
+async def _show_motivation_panel(target, user_lang: str = "ru") -> None:
+    """Render the motivation settings panel. Does NOT call cb.answer() — callers manage it."""
+    settings = await db.get_motivation_settings()
+    enabled  = settings.get("enabled", False)
+    time_str = settings.get("send_time", "08:00")
+    last     = settings.get("last_sent_date") or t("adm_motivation_never", user_lang)
+    status   = t("adm_motivation_status_on" if enabled else "adm_motivation_status_off", user_lang)
+    text     = t("adm_motivation_panel", user_lang, status=status, time=time_str, last=last)
+    kb       = motivation_settings_kb(enabled, user_lang)
+    if isinstance(target, CallbackQuery):
+        await target.message.edit_text(text, reply_markup=kb, parse_mode="Markdown")
+    else:
+        await target.answer(text, reply_markup=kb, parse_mode="Markdown")
+
+
+@router.callback_query(F.data == "adm:motivation")
+async def adm_motivation(cb: CallbackQuery, user_lang: str = "ru"):
+    await _show_motivation_panel(cb, user_lang)
+    await cb.answer()
+
+
+@router.callback_query(F.data == "adm:motivation:toggle")
+async def adm_motivation_toggle(cb: CallbackQuery, user_lang: str = "ru"):
+    settings = await db.get_motivation_settings()
+    settings["enabled"] = not settings.get("enabled", False)
+    await db.save_motivation_settings(settings)
+    key = "adm_motivation_toggled_on" if settings["enabled"] else "adm_motivation_toggled_off"
+    # Edit message first, then answer with toast (one answer per callback)
+    await _show_motivation_panel(cb, user_lang)
+    await cb.answer(t(key, user_lang))
+
+
+@router.callback_query(F.data == "adm:motivation:set_time")
+async def adm_motivation_set_time(cb: CallbackQuery, state: FSMContext, user_lang: str = "ru"):
+    await state.set_state(MotivationSettingsForm.send_time)
+    await state.update_data(wizard_lang=user_lang)
+    from bot.keyboards import motivation_cancel_kb
+    await cb.message.edit_text(
+        t("adm_motivation_set_time_prompt", user_lang),
+        reply_markup=motivation_cancel_kb(user_lang),
+        parse_mode="Markdown",
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data == "adm:motivation:cancel")
+async def adm_motivation_cancel(cb: CallbackQuery, state: FSMContext, user_lang: str = "ru"):
+    """Cancel motivation FSM and return to motivation panel (not challenge list)."""
+    await state.clear()
+    await _show_motivation_panel(cb, user_lang)
+    await cb.answer()
+
+
+@router.message(MotivationSettingsForm.send_time)
+async def adm_motivation_time_input(msg: Message, state: FSMContext, user_lang: str = "ru"):
+    data = await state.get_data()
+    lang = data.get("wizard_lang", user_lang)
+    raw  = msg.text.strip()
+    try:
+        h, m = map(int, raw.split(":"))
+        assert 0 <= h <= 23 and 0 <= m <= 59
+        formatted = f"{h:02d}:{m:02d}"
+    except Exception:
+        from bot.keyboards import motivation_cancel_kb
+        await msg.answer(
+            t("adm_motivation_time_invalid", lang),
+            reply_markup=motivation_cancel_kb(lang),
+            parse_mode="Markdown",
+        )
+        return
+    await state.clear()
+    settings = await db.get_motivation_settings()
+    settings["send_time"]      = formatted
+    settings["last_sent_date"] = None  # allow re-send on new time
+    await db.save_motivation_settings(settings)
+    await msg.answer(t("adm_motivation_time_saved", lang, time=formatted), parse_mode="Markdown")
+    await _show_motivation_panel(msg, lang)
+
+
+@router.callback_query(F.data == "adm:motivation:send_now")
+async def adm_motivation_send_now(cb: CallbackQuery, user_lang: str = "ru"):
+    from services.scheduler import send_motivation_now
+    import datetime as _dt
+    # Acknowledge immediately — long operation follows
+    await cb.answer()
+    sent, failed = await send_motivation_now(cb.bot)
+    # Persist last_sent_date so scheduler won't double-fire today
+    settings = await db.get_motivation_settings()
+    settings["last_sent_date"] = _dt.date.today().isoformat()
+    await db.save_motivation_settings(settings)
+    # Show result as a new message, then refresh the panel in-place
+    await cb.message.answer(
+        t("adm_motivation_sent_now", user_lang, sent=sent, failed=failed),
+        parse_mode="Markdown",
+    )
+    await _show_motivation_panel(cb, user_lang)
 
 
 # ─── Create challenge wizard ───────────────────────────────────────────────

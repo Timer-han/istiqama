@@ -1,4 +1,4 @@
-"""services/scheduler.py – daily question sender + challenge announcements."""
+"""services/scheduler.py – daily question sender + challenge announcements + motivation broadcast."""
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +12,7 @@ from aiogram.fsm.storage.base import BaseStorage, StorageKey
 
 import services.db as db
 from bot.handlers import build_question_message
-from bot.i18n import t, kind_label, SUPPORTED_LANGS
+from bot.i18n import t, kind_label, SUPPORTED_LANGS, get_daily_motivation
 from bot.keyboards import challenge_announce_kb
 from bot.states import CountAnswerState
 from bot.utils import challenge_text
@@ -24,6 +24,9 @@ from constants import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Seconds between motivation messages to stay under Telegram rate limits
+_MOTIVATION_RATE = 0.05
 
 
 async def scheduler_task(
@@ -49,6 +52,82 @@ async def scheduler_task(
         await asyncio.sleep(interval)
 
 
+async def daily_motivation_task(bot: Bot) -> None:
+    """Runs every minute; sends motivation broadcast when configured time arrives."""
+    logger.info("Daily motivation task started")
+    while True:
+        try:
+            await _check_and_send_motivation(bot)
+        except Exception:
+            logger.exception("Daily motivation error")
+        await asyncio.sleep(60)
+
+
+async def _check_and_send_motivation(bot: Bot) -> None:
+    settings = await db.get_motivation_settings()
+    if not settings.get("enabled"):
+        return
+
+    send_time = settings.get("send_time", "08:00")
+    try:
+        h, m = map(int, send_time.split(":"))
+    except Exception:
+        return
+
+    now_utc = datetime.now(pytz.UTC)
+    today_str = now_utc.date().isoformat()
+
+    # Already sent today?
+    if settings.get("last_sent_date") == today_str:
+        return
+
+    # Is it the right minute?
+    if now_utc.hour != h or now_utc.minute != m:
+        return
+
+    await _send_daily_motivation(bot)
+
+    settings["last_sent_date"] = today_str
+    await db.save_motivation_settings(settings)
+
+
+async def send_motivation_now(bot: Bot) -> tuple[int, int]:
+    """Force-send the motivation broadcast immediately. Returns (sent, failed)."""
+    return await _send_daily_motivation(bot)
+
+
+async def _send_daily_motivation(bot: Bot) -> tuple[int, int]:
+    """Send daily motivation message to all users. Returns (sent, failed)."""
+    users = await db.get_all_users_with_lang()
+    if not users:
+        return 0, 0
+
+    active_count = await db.get_total_active_participants()
+    sent = failed = 0
+
+    for user in users:
+        lang = (user.get("lang") or "ru") if hasattr(user, "get") else "ru"
+        lang = lang if lang in SUPPORTED_LANGS else "ru"
+
+        message = get_daily_motivation(lang)
+        text = t("motivation_broadcast", lang, count=active_count, message=message)
+
+        try:
+            await bot.send_message(
+                chat_id=user["telegram_id"],
+                text=text,
+                parse_mode="Markdown",
+            )
+            sent += 1
+        except Exception as exc:
+            logger.debug("Motivation → %d: %s", user["telegram_id"], exc)
+            failed += 1
+        await asyncio.sleep(_MOTIVATION_RATE)
+
+    logger.info("Motivation broadcast: %d sent, %d failed", sent, failed)
+    return sent, failed
+
+
 # ─── Dispatcher ────────────────────────────────────────────────────────────
 
 async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
@@ -62,7 +141,6 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
 
     logger.debug("Dispatcher: %d rows due", len(rows))
 
-    # ── Phase 1: фильтрация, группировка по user → batches ─────────────────
     users: dict[int, dict] = {}
 
     for row in rows:
@@ -81,7 +159,6 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
             meta = json.loads(meta)
         schedule_time_str = meta.get("schedule_time", "06:00")
 
-        # schedule_time ещё не наступило
         try:
             sh, sm = map(int, schedule_time_str.split(":"))
         except ValueError:
@@ -89,7 +166,6 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
         if now_local < now_local.replace(hour=sh, minute=sm, second=0, microsecond=0):
             continue
 
-        # Инактивность → авто-кик
         if _is_inactive(row, today_local, tz):
             logger.info("Auto-kick user_id=%d challenge=%s", user_id, row["slug"])
             await db.set_participant_inactive(user_id, row["challenge_id"])
@@ -108,8 +184,6 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
 
     if not users:
         return
-
-    # ── Phase 2: добавить в очередь + обновить next_dispatch_at ─────────────
 
     for user_id, udata in users.items():
         today  = udata["today"]
@@ -131,16 +205,11 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
                     next_dispatch_ts = next_ts,
                 )
 
-    # ── Phase 3: отправить первый вопрос (если нет ЛЮБОГО неотвеченного) ──────
-
     for user_id, udata in users.items():
         today = udata["today"]
 
         if await db.has_any_unanswered_today(user_id, today):
-            logger.debug(
-                "user_id=%d: unanswered question pending (any batch), skipping",
-                user_id,
-            )
+            logger.debug("user_id=%d: unanswered question pending, skipping", user_id)
             continue
 
         sent_one = False
@@ -149,10 +218,6 @@ async def _run_dispatcher(bot: Bot, storage: BaseStorage) -> None:
                 break
             next_item = await db.get_next_unsent(user_id, today, schedule_time)
             if not next_item:
-                logger.debug(
-                    "user_id=%d batch=%s: no unsent items",
-                    user_id, schedule_time,
-                )
                 continue
             await _send_queue_item(bot, storage, udata, next_item, today)
             sent_one = True

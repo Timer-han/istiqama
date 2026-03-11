@@ -1,13 +1,16 @@
-"""bot/i18n.py – All UI strings in ru / en / tt (Tatar).
+"""bot/i18n.py – All UI strings + daily motivation messages (ru / en / tt).
 
 Usage:
-    from bot.i18n import t, user_lang
-    lang = user_lang(db_user)          # "ru" | "en" | "tt"
+    from bot.i18n import t, user_lang, get_daily_motivation
+    lang = user_lang(db_user)
     text = t("welcome", lang, name="…")
+    tip  = get_daily_motivation(lang)
 
 Fallback chain:  lang → "ru" → key_string_itself
 """
 from __future__ import annotations
+
+import datetime
 
 SUPPORTED_LANGS = ("ru", "en", "tt")
 DEFAULT_LANG    = "ru"
@@ -24,6 +27,91 @@ KIND_LABELS: dict[str, dict[str, str]] = {
     "scale_1_5": {"ru": "Шкала 1–5",  "en": "Scale 1–5", "tt": "Шкала 1–5"},
     "poll":      {"ru": "Варианты",   "en": "Options",   "tt": "Вариантлар"},
 }
+
+# ─── Daily motivation messages ─────────────────────────────────────────────
+# Selected by date index so all users get the same message on the same day.
+# Add/edit freely — length of each list may differ across languages.
+
+MOTIVATION_MESSAGES: dict[str, list[str]] = {
+    "ru": [
+        "Каждый шаг на пути к Аллаху — это ибадат. Продолжайте! 🌿",
+        "Пророк ﷺ сказал: «Самые любимые дела пред Аллахом — те, что регулярны, даже если они небольшие».",
+        "Сегодняшний день — возможность стать лучше вчерашнего. Используйте её! ✨",
+        "Истикама — это постоянство. Каждый день засчитывается. 🏆",
+        "«Поистине, вместе с трудностью — облегчение» (94:5). Продолжайте! 💪",
+        "Ваши маленькие победы сегодня — большие результаты завтра.",
+        "Дуа + действие = прогресс. Делайте оба! 🤲",
+        "Не сравнивайте себя с другими. Сравнивайте себя со вчерашним собой.",
+        "Аллах видит ваши усилия, даже когда никто другой не видит. 👁",
+        "Привычки строятся день за днём. Вы на правильном пути!",
+        "«Терпение — половина веры». Храните его в трудные дни. 💎",
+        "Бисмиллях — начните сегодня с намерения! 🌅",
+        "Умма строится из таких людей, как вы. Ваши усилия важны! 🕌",
+        "Маленькие дела с искренностью ценнее больших без неё.",
+        "Продолжайте — Аллах с терпеливыми! إِنَّ ٱللَّهَ مَعَ ٱلصَّٰبِرِينَ",
+        "Каждое утро — новый шанс. Воспользуйтесь им! 🌄",
+        "Не останавливайтесь — даже один шаг в день меняет жизнь.",
+        "Ваши привычки сегодня — это ваш характер завтра. 🌙",
+        "Никогда не поздно начать — сделайте что-нибудь хорошее прямо сейчас.",
+        "Помните: Аллах не возлагает на душу сверх её возможностей (2:286). Идите своим темпом.",
+    ],
+    "en": [
+        "Every step towards Allah is an act of worship. Keep going! 🌿",
+        "The Prophet ﷺ said: 'The most beloved deeds to Allah are those done consistently, even if small.'",
+        "Today is an opportunity to be better than yesterday. Use it! ✨",
+        "Istiqama means consistency. Every day counts. 🏆",
+        "'Indeed, with hardship comes ease' (94:5). Keep going! 💪",
+        "Your small victories today are your big results tomorrow.",
+        "Du'a + action = progress. Do both! 🤲",
+        "Don't compare yourself to others. Compare yourself to yesterday's you.",
+        "Allah sees your efforts, even when no one else does. 👁",
+        "Habits are built day by day. You're on the right path!",
+        "'Patience is half of faith.' Hold onto it on hard days. 💎",
+        "Bismillah — start today with intention! 🌅",
+        "The Ummah is built by people like you. Your efforts matter! 🕌",
+        "Small deeds done sincerely outweigh great deeds done insincerely.",
+        "Keep going — Allah is with the patient! إِنَّ ٱللَّهَ مَعَ ٱلصَّٰبِرِينَ",
+        "Every morning is a new chance. Take it! 🌄",
+        "Don't stop — even one step a day changes your life.",
+        "Your habits today are your character tomorrow. 🌙",
+        "It's never too late — do something good right now.",
+        "Remember: Allah does not burden a soul beyond its capacity (2:286). Go at your own pace.",
+    ],
+    "tt": [
+        "Аллаhка таба hәр адым — гыйбадәт. Дәвам итегез! 🌿",
+        "Пәйгамбәр ﷺ: «Аллаhка иң яраклы гамәлләр — даими, кечкенә булса да».",
+        "Бүгенге көн — кичәгедән яхшырак булу мөмкинлеге. Файдаланыгыз! ✨",
+        "Истикамә — даимилек. hәр көн исәпкә керә. 🏆",
+        "«Кыенлык белән бергә — җиңеллек» (94:5). Дәвам итегез! 💪",
+        "Бүгенге кечкенә казанышларыгыз — иртәгезнең зур нәтиҗәсе.",
+        "Догаю + гамәл = алга бару. Икесен дә эшләгез! 🤲",
+        "Башкалар белән чагыштырмагыз. Кичәге үзегез белән чагыштырыгыз.",
+        "Аллаh сезнең тырышлыкларны күрә, башкалар күрмәсә дә. 👁",
+        "Гадәтләр көн саен төзелә. Сез дөрес юлда!",
+        "«Сабырлык — иманның яртысы». Авыр көннәрдә саклагыз. 💎",
+        "Бисмиллаh — бүгенне ният белән башлагыз! 🌅",
+        "Өммәт сездәй кешеләрдән тора. Тырышлыгыгыз мөhим! 🕌",
+        "Ихлас белән кечкенә гамәл — ихлассыз зур гамәлдән кыйммәтрәк.",
+        "Дәвам итегез — Аллаh сабырлылар белән! إِنَّ ٱللَّهَ مَعَ ٱلصَّٰبِرِينَ",
+        "hәр иртә — яңа мөмкинлек. Файдаланыгыз! 🌄",
+        "Туктамагыз — көн саен бер адым гына тормышны үзгәртә.",
+        "Бүгенге гадәтләрегез — иртәгегезнең характеры. 🌙",
+        "Беркайчан да соң түгел — хәзер үк нидер яхшы эшләгез.",
+        "Искә алыгыз: Аллаh бер кешене сәләтеннән артык йөкләми (2:286). Үз тизлегегездә барыгыз.",
+    ],
+}
+
+
+def get_daily_motivation(lang: str = DEFAULT_LANG) -> str:
+    """Return today's motivational message for the given language.
+    Uses date ordinal so all users get the same message on the same day
+    and no message repeats until the list is exhausted.
+    """
+    lang = lang if lang in SUPPORTED_LANGS else DEFAULT_LANG
+    messages = MOTIVATION_MESSAGES.get(lang) or MOTIVATION_MESSAGES[DEFAULT_LANG]
+    idx = datetime.date.today().toordinal() % len(messages)
+    return messages[idx]
+
 
 # ─── String table ──────────────────────────────────────────────────────────
 _S: dict[str, dict[str, str]] = {
@@ -312,16 +400,6 @@ Click the menu below to see all the features!""",
         "en": "`{day}` — {count} answers",
         "tt": "`{day}` — {count} җавап",
     },
-    "adm_detail_top_header": {
-        "ru": "\n🏅 *Топ участников:*\n",
-        "en": "\n🏅 *Top participants:*\n",
-        "tt": "\n🏅 *Иң яхшы катнашучылар:*\n",
-    },
-    "adm_detail_top_row": {
-        "ru": "{pos}. {name} — {answers} дней, среднее {avg}",
-        "en": "{pos}. {name} — {answers} days, avg {avg}",
-        "tt": "{pos}. {name} — {answers} көн, уртача {avg}",
-    },
     "adm_ch_btn_detail": {
         "ru": "📊 Детальная статистика",
         "en": "📊 Detailed Stats",
@@ -340,7 +418,7 @@ Click the menu below to see all the features!""",
         "tt": "🔍 {title}",
     },
 
-    # ── Admin challenge card (shown in challenge management view) ─────────────
+    # ── Admin challenge card ───────────────────────────────────────────────
     "adm_ch_card": {
         "ru": (
             "🧩 *{title}*\n_{description}_\n\n"
@@ -370,8 +448,6 @@ Click the menu below to see all the features!""",
             "Сорау: _{question}_"
         ),
     },
-
-    # ── Admin challenge card: launch date line ─────────────────────────────
     "adm_ch_launch_str": {
         "ru": "\nЗапуск: `{launch_at}`",
         "en": "\nLaunch: `{launch_at}`",
@@ -402,7 +478,7 @@ Click the menu below to see all the features!""",
     "left_challenge": {
         "ru": "Вы вышли из челленджа.",
         "en": "You left the challenge.",
-        "tt": "Сез сынаудар чыктыгыз.",
+        "tt": "Сез сынаудан чыктыгыз.",
     },
 
     # ── Settings ───────────────────────────────────────────────────────────
@@ -540,6 +616,11 @@ Click the menu below to see all the features!""",
         "ru": "📊 Статистика",
         "en": "📊 Statistics",
         "tt": "📊 Статистика",
+    },
+    "adm_btn_motivation": {
+        "ru": "📅 Мотивация",
+        "en": "📅 Motivation",
+        "tt": "📅 Мотивация",
     },
     "adm_stats_header": {
         "ru": "👥 Всего пользователей: *{total}*\n🔥 Ответили сегодня: *{today}*\n\n📊 *Статистика по челленджам (сегодня):*",
@@ -832,46 +913,14 @@ Click the menu below to see all the features!""",
         "en": "Unknown field",
         "tt": "Билгесез урын",
     },
-    "adm_field_slug": {
-        "ru": "Slug",
-        "en": "Slug",
-        "tt": "Slug",
-    },
-    "adm_field_title": {
-        "ru": "Название",
-        "en": "Title",
-        "tt": "Исем",
-    },
-    "adm_field_description": {
-        "ru": "Описание",
-        "en": "Description",
-        "tt": "Тасвирлама",
-    },
-    "adm_field_kind": {
-        "ru": "Тип",
-        "en": "Type",
-        "tt": "Төр",
-    },
-    "adm_field_question": {
-        "ru": "Вопрос",
-        "en": "Question",
-        "tt": "Сорау",
-    },
-    "adm_field_options": {
-        "ru": "Варианты ответа",
-        "en": "Answer Options",
-        "tt": "Вариантлар",
-    },
-    "adm_field_schedule": {
-        "ru": "Время",
-        "en": "Time",
-        "tt": "Вакыт",
-    },
-    "adm_field_duration": {
-        "ru": "Длительность",
-        "en": "Duration",
-        "tt": "Озынлыгы",
-    },
+    "adm_field_slug":        {"ru": "Slug",           "en": "Slug",        "tt": "Slug"},
+    "adm_field_title":       {"ru": "Название",       "en": "Title",       "tt": "Исем"},
+    "adm_field_description": {"ru": "Описание",       "en": "Description", "tt": "Тасвирлама"},
+    "adm_field_kind":        {"ru": "Тип",            "en": "Type",        "tt": "Төр"},
+    "adm_field_question":    {"ru": "Вопрос",         "en": "Question",    "tt": "Сорау"},
+    "adm_field_options":     {"ru": "Варианты ответа","en": "Answer Options","tt": "Вариантлар"},
+    "adm_field_schedule":    {"ru": "Время",          "en": "Time",        "tt": "Вакыт"},
+    "adm_field_duration":    {"ru": "Длительность",   "en": "Duration",    "tt": "Озынлыгы"},
 
     # ── Broadcast ───────────────────────────────────────────────────────────
     "adm_broadcast_prompt": {
@@ -918,199 +967,101 @@ Click the menu below to see all the features!""",
         "en": "◀ Back",
         "tt": "◀ Артка",
     },
-    
-    
-    # ── Mini App (Telegram WebApp) strings ────────────────────────────────────
-    # ── Greeting / subtitle ────────────────────────────────────────────────
-    "webapp_greeting": {
-        "ru": "Ас-саляму алейкум, {name}! 🌙",
-        "en": "As-salamu alaykum, {name}! 🌙",
-        "tt": "Әс-сәламү гәләйкүм, {name}! 🌙",
-    },
-    "webapp_subtitle": {
-        "ru": "Ваши челленджи на сегодня",
-        "en": "Your challenges for today",
-        "tt": "Бүгенге сынауларыгыз",
+
+    # ── Mini App (Telegram WebApp) strings ─────────────────────────────────
+    "webapp_greeting":          {"ru": "Ас-саляму алейкум, {name}! 🌙",      "en": "As-salamu alaykum, {name}! 🌙",    "tt": "Әс-сәламү гәләйкүм, {name}! 🌙"},
+    "webapp_subtitle":          {"ru": "Ваши челленджи на сегодня",           "en": "Your challenges for today",         "tt": "Бүгенге сынауларыгыз"},
+    "webapp_loading":           {"ru": "Загрузка…",                           "en": "Loading…",                          "tt": "Йөкләнә…"},
+    "webapp_error_load":        {"ru": "Ошибка загрузки",                     "en": "Loading error",                     "tt": "Йөкләнү хатасы"},
+    "webapp_no_participation":  {"ru": "Вы не участвуете ни в одном челлендже","en": "You are not participating in any challenges","tt": "Сез бер сынауда да катнашмыйсыз"},
+    "webapp_btn_answer":        {"ru": "Ответить →",                          "en": "Answer →",                          "tt": "Җавап бир →"},
+    "webapp_btn_done":          {"ru": "✅ Отвечено",                          "en": "✅ Answered",                       "tt": "✅ Җавап бирелде"},
+    "webapp_btn_wait":          {"ru": "⏳ Ожидание",                          "en": "⏳ Waiting",                        "tt": "⏳ Көтү"},
+    "webapp_btn_join":          {"ru": "✅ Вступить",                          "en": "✅ Join",                           "tt": "✅ Кушылу"},
+    "webapp_btn_leave":         {"ru": "⛔ Выйти",                             "en": "⛔ Leave",                          "tt": "⛔ Чыгу"},
+    "webapp_no_challenges_list":{"ru": "Нет доступных челленджей",             "en": "No challenges available",           "tt": "Сынаулар юк"},
+    "webapp_btn_location":      {"ru": "📍 Обновить геолокацию",               "en": "📍 Update location",                "tt": "📍 Урынны яңарту"},
+    "webapp_lang_header":       {"ru": "Язык интерфейса",                      "en": "Interface language",                "tt": "Интерфейс теле"},
+    "webapp_tz_label":          {"ru": "Часовой пояс",                         "en": "Timezone",                          "tt": "Вакыт зонасы"},
+    "webapp_btn_submit":        {"ru": "Готово",                               "en": "Done",                              "tt": "Әзер"},
+    "webapp_already_answered":  {"ru": "Уже отвечено сегодня",                 "en": "Already answered today",            "tt": "Бүген инде җавап бирелде"},
+    "webapp_nav_today":         {"ru": "Сегодня",                              "en": "Today",                             "tt": "Бүген"},
+    "webapp_nav_stats":         {"ru": "Статистика",                           "en": "Stats",                             "tt": "Статистика"},
+    "webapp_nav_challenges":    {"ru": "Челленджи",                            "en": "Challenges",                        "tt": "Сынаулар"},
+    "webapp_nav_settings":      {"ru": "Настройки",                            "en": "Settings",                          "tt": "Көйләүләр"},
+    "webapp_header_stats":      {"ru": "📊 Статистика",                        "en": "📊 Statistics",                     "tt": "📊 Статистика"},
+    "webapp_header_challenges": {"ru": "🕌 Все челленджи",                     "en": "🕌 All challenges",                  "tt": "🕌 Барлык сынаулар"},
+    "webapp_header_settings":   {"ru": "⚙️ Настройки",                         "en": "⚙️ Settings",                       "tt": "⚙️ Көйләүләр"},
+    "webapp_no_stats":          {"ru": "Нет активных участий в челленджах",    "en": "No active challenge participations", "tt": "Актив катнашулар юк"},
+    "webapp_no_answers_yet":    {"ru": "Ответов ещё нет",                      "en": "No answers yet",                    "tt": "Җаваплар юк әле"},
+    "webapp_stat_yes_pct":      {"ru": "Да за всё время",                      "en": "Yes all time",                      "tt": "Бөтен вакыт өчен Әйе"},
+    "webapp_stat_days":         {"ru": "Дней с ответом",                       "en": "Days answered",                     "tt": "Җавап бирелгән көннәр"},
+    "webapp_stat_streak":       {"ru": "Серия сейчас",                         "en": "Current streak",                    "tt": "Хәзерге серия"},
+    "webapp_stat_record":       {"ru": "Рекорд",                               "en": "Record",                            "tt": "Рекорд"},
+    "webapp_stat_avg7":         {"ru": "Среднее за 7 дней",                    "en": "Avg last 7 days",                   "tt": "7 көн уртача"},
+    "webapp_stat_avg_all":      {"ru": "Среднее за всё время",                 "en": "All-time average",                  "tt": "Бөтен вакыт өчен уртак"},
+    "webapp_stat_max":          {"ru": "Максимум",                             "en": "Maximum",                           "tt": "Максимум"},
+    "webapp_open_btn":          {"ru": "🌙 Открыть Istiqama",                   "en": "🌙 Open Istiqama",                   "tt": "🌙 Istiqamaны ачу"},
+    "webapp_open_prompt":       {"ru": "📱 Или откройте приложение:",           "en": "📱 Or open the app:",               "tt": "📱 Яки кушымтаны ачыгыз:"},
+
+    # ── Daily motivation broadcast ─────────────────────────────────────────
+    # The {message} placeholder is filled by get_daily_motivation(lang).
+    "motivation_broadcast": {
+        "ru": "🌙 *Istiqama — ежедневная мотивация*\n\n👥 Сейчас в челленджах: *{count}* чел.\n\n✨ _{message}_",
+        "en": "🌙 *Istiqama — daily motivation*\n\n👥 Currently in challenges: *{count}* people\n\n✨ _{message}_",
+        "tt": "🌙 *Istiqama — көнлек мотивация*\n\n👥 Сынауларда катнашалар: *{count}* кеше\n\n✨ _{message}_",
     },
 
-    # ── Generic UI ─────────────────────────────────────────────────────────
-    "webapp_loading": {
-        "ru": "Загрузка…",
-        "en": "Loading…",
-        "tt": "Йөкләнә…",
+    # ── Admin: motivation settings panel ──────────────────────────────────
+    "adm_motivation_panel": {
+        "ru": (
+            "📅 *Ежедневная мотивационная рассылка*\n\n"
+            "Статус: {status}\n"
+            "Время отправки (UTC): `{time}`\n"
+            "Последняя: {last}"
+        ),
+        "en": (
+            "📅 *Daily Motivation Broadcast*\n\n"
+            "Status: {status}\n"
+            "Send time (UTC): `{time}`\n"
+            "Last sent: {last}"
+        ),
+        "tt": (
+            "📅 *Көнлек мотивация рассылкасы*\n\n"
+            "Статус: {status}\n"
+            "Вакыт (UTC): `{time}`\n"
+            "Соңгы: {last}"
+        ),
     },
-    "webapp_error_load": {
-        "ru": "Ошибка загрузки",
-        "en": "Loading error",
-        "tt": "Йөкләнү хатасы",
+    "adm_motivation_status_on":    {"ru": "🟢 Включена",    "en": "🟢 Enabled",  "tt": "🟢 Кушылган"},
+    "adm_motivation_status_off":   {"ru": "🔴 Выключена",   "en": "🔴 Disabled", "tt": "🔴 Сүндерелгән"},
+    "adm_motivation_never":        {"ru": "никогда",        "en": "never",       "tt": "беркайчан"},
+    "adm_motivation_btn_enable":     {"ru": "🟢 Включить",       "en": "🟢 Enable",      "tt": "🟢 Кушу"},
+    "adm_motivation_btn_disable":    {"ru": "🔴 Выключить",      "en": "🔴 Disable",     "tt": "🔴 Сүндерү"},
+    "adm_motivation_btn_set_time":   {"ru": "🕐 Изменить время",  "en": "🕐 Change time", "tt": "🕐 Вакытны үзгәртү"},
+    "adm_motivation_btn_send_now":   {"ru": "⚡ Отправить сейчас","en": "⚡ Send now",     "tt": "⚡ Хәзер жибәрү"},
+    "adm_motivation_toggled_on":  {"ru": "✅ Рассылка включена",     "en": "✅ Broadcast enabled",  "tt": "✅ Рассылка кушылды"},
+    "adm_motivation_toggled_off": {"ru": "🔴 Рассылка выключена",    "en": "🔴 Broadcast disabled", "tt": "🔴 Рассылка сүндерелде"},
+    "adm_motivation_set_time_prompt": {
+        "ru": "🕐 Введите время отправки (UTC) в формате `ЧЧ:ММ`\n\nПример: `08:00`",
+        "en": "🕐 Enter send time (UTC) in `HH:MM` format\n\nExample: `08:00`",
+        "tt": "🕐 Жибәрү вакытын языгыз (UTC) `СС:ДД` форматында\n\nМисал: `08:00`",
     },
-    "webapp_no_participation": {
-        "ru": "Вы не участвуете ни в одном челлендже",
-        "en": "You are not participating in any challenges",
-        "tt": "Сез бер сынауда да катнашмыйсыз",
+    "adm_motivation_time_invalid": {
+        "ru": "❌ Неверный формат. Введите ЧЧ:ММ, например `08:00`",
+        "en": "❌ Invalid format. Enter HH:MM, e.g. `08:00`",
+        "tt": "❌ Хаталы формат. Мисал: `08:00`",
     },
-
-    # ── Home: answer button states ─────────────────────────────────────────
-    "webapp_btn_answer": {
-        "ru": "Ответить →",
-        "en": "Answer →",
-        "tt": "Җавап бир →",
+    "adm_motivation_time_saved": {
+        "ru": "✅ Время рассылки обновлено: `{time}` UTC",
+        "en": "✅ Broadcast time updated: `{time}` UTC",
+        "tt": "✅ Рассылка вакыты яңартылды: `{time}` UTC",
     },
-    "webapp_btn_done": {
-        "ru": "✅ Отвечено",
-        "en": "✅ Answered",
-        "tt": "✅ Җавап бирелде",
+    "adm_motivation_sent_now": {
+        "ru": "✅ Отправлено: *{sent}* польз., ошибок: {failed}",
+        "en": "✅ Sent: *{sent}* users, failed: {failed}",
+        "tt": "✅ Жибәрелде: *{sent}* кулл., хата: {failed}",
     },
-    "webapp_btn_wait": {
-        "ru": "⏳ Ожидание",
-        "en": "⏳ Waiting",
-        "tt": "⏳ Көтү",
-    },
-
-    # ── Challenges screen ──────────────────────────────────────────────────
-    "webapp_btn_join": {
-        "ru": "✅ Вступить",
-        "en": "✅ Join",
-        "tt": "✅ Кушылу",
-    },
-    "webapp_btn_leave": {
-        "ru": "⛔ Выйти",
-        "en": "⛔ Leave",
-        "tt": "⛔ Чыгу",
-    },
-    "webapp_no_challenges_list": {
-        "ru": "Нет доступных челленджей",
-        "en": "No challenges available",
-        "tt": "Сынаулар юк",
-    },
-
-    # ── Settings screen ────────────────────────────────────────────────────
-    "webapp_btn_location": {
-        "ru": "📍 Обновить геолокацию",
-        "en": "📍 Update location",
-        "tt": "📍 Урынны яңарту",
-    },
-    "webapp_lang_header": {
-        "ru": "Язык интерфейса",
-        "en": "Interface language",
-        "tt": "Интерфейс теле",
-    },
-    "webapp_tz_label": {
-        "ru": "Часовой пояс",
-        "en": "Timezone",
-        "tt": "Вакыт зонасы",
-    },
-
-    # ── Answer overlay ─────────────────────────────────────────────────────
-    "webapp_btn_submit": {
-        "ru": "Готово",
-        "en": "Done",
-        "tt": "Әзер",
-    },
-    "webapp_already_answered": {
-        "ru": "Уже отвечено сегодня",
-        "en": "Already answered today",
-        "tt": "Бүген инде җавап бирелде",
-    },
-
-    # ── Nav bar labels ─────────────────────────────────────────────────────
-    "webapp_nav_today": {
-        "ru": "Сегодня",
-        "en": "Today",
-        "tt": "Бүген",
-    },
-    "webapp_nav_stats": {
-        "ru": "Статистика",
-        "en": "Stats",
-        "tt": "Статистика",
-    },
-    "webapp_nav_challenges": {
-        "ru": "Челленджи",
-        "en": "Challenges",
-        "tt": "Сынаулар",
-    },
-    "webapp_nav_settings": {
-        "ru": "Настройки",
-        "en": "Settings",
-        "tt": "Көйләүләр",
-    },
-
-    # ── Screen headers ─────────────────────────────────────────────────────
-    "webapp_header_stats": {
-        "ru": "📊 Статистика",
-        "en": "📊 Statistics",
-        "tt": "📊 Статистика",
-    },
-    "webapp_header_challenges": {
-        "ru": "🕌 Все челленджи",
-        "en": "🕌 All challenges",
-        "tt": "🕌 Барлык сынаулар",
-    },
-    "webapp_header_settings": {
-        "ru": "⚙️ Настройки",
-        "en": "⚙️ Settings",
-        "tt": "⚙️ Көйләүләр",
-    },
-
-    # ── Stats screen ───────────────────────────────────────────────────────
-    "webapp_no_stats": {
-        "ru": "Нет активных участий в челленджах",
-        "en": "No active challenge participations",
-        "tt": "Актив катнашулар юк",
-    },
-    "webapp_no_answers_yet": {
-        "ru": "Ответов ещё нет",
-        "en": "No answers yet",
-        "tt": "Җаваплар юк әле",
-    },
-    "webapp_stat_yes_pct": {
-        "ru": "Да за всё время",
-        "en": "Yes all time",
-        "tt": "Бөтен вакыт өчен Әйе",
-    },
-    "webapp_stat_days": {
-        "ru": "Дней с ответом",
-        "en": "Days answered",
-        "tt": "Җавап бирелгән көннәр",
-    },
-    "webapp_stat_streak": {
-        "ru": "Серия сейчас",
-        "en": "Current streak",
-        "tt": "Хәзерге серия",
-    },
-    "webapp_stat_record": {
-        "ru": "Рекорд",
-        "en": "Record",
-        "tt": "Рекорд",
-    },
-    "webapp_stat_avg7": {
-        "ru": "Среднее за 7 дней",
-        "en": "Avg last 7 days",
-        "tt": "7 көн уртача",
-    },
-    "webapp_stat_avg_all": {
-        "ru": "Среднее за всё время",
-        "en": "All-time average",
-        "tt": "Бөтен вакыт өчен уртак",
-    },
-    "webapp_stat_max": {
-        "ru": "Максимум",
-        "en": "Maximum",
-        "tt": "Максимум",
-    },
-
-    # ── Bot button: open Mini App ──────────────────────────────────────────
-    "webapp_open_btn": {
-        "ru": "🌙 Открыть Istiqama",
-        "en": "🌙 Open Istiqama",
-        "tt": "🌙 Istiqamaны ачу",
-    },
-    "webapp_open_prompt": {
-        "ru": "📱 Или откройте приложение:",
-        "en": "📱 Or open the app:",
-        "tt": "📱 Яки кушымтаны ачыгыз:",
-    },
-
 }
 
 

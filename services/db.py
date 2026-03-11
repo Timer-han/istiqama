@@ -138,7 +138,6 @@ async def update_challenge_translation(
     description: str = "",
     options: list | None = None,
 ) -> None:
-    """Добавить или заменить перевод для указанного языка в metadata.translations."""
     row = await fetchrow("SELECT metadata FROM challenges WHERE id=$1", challenge_id)
     if not row:
         return
@@ -246,7 +245,6 @@ async def get_active_participants_for_challenge(challenge_id: int) -> List[Recor
 
 
 async def get_active_participations_for_user(user_id: int) -> List[Record]:
-    """All challenges the user is currently active in, with metadata."""
     return await fetch(
         """
         SELECT cp.challenge_id, c.slug, c.kind, c.metadata
@@ -469,6 +467,18 @@ async def get_admin_stats() -> dict:
     }
 
 
+async def get_total_active_participants() -> int:
+    """Total unique users currently active in at least one challenge."""
+    row = await fetchrow(
+        """
+        SELECT COUNT(DISTINCT user_id) AS n
+        FROM challenge_participants
+        WHERE active = TRUE
+        """
+    )
+    return row["n"] if row else 0
+
+
 # ─────────────────────────── OUTBOX ───────────────────────────────────────
 
 
@@ -557,6 +567,43 @@ async def get_all_active_telegram_ids() -> List[int]:
 async def get_all_telegram_ids() -> List[int]:
     rows = await fetch("SELECT telegram_id FROM users ORDER BY id")
     return [r["telegram_id"] for r in rows]
+
+
+async def get_all_users_with_lang() -> List[Record]:
+    """All users with their language preference, for personalised broadcasts."""
+    return await fetch("SELECT telegram_id, lang FROM users ORDER BY id")
+
+
+# ─────────────────────────── MOTIVATION SETTINGS ──────────────────────────
+
+_MOTIVATION_KEY = "motivation_settings"
+
+
+async def get_motivation_settings() -> dict:
+    """Return motivation broadcast settings dict.
+    Structure: {enabled, send_time (HH:MM UTC), last_sent_date (YYYY-MM-DD|None)}
+    """
+    row = await fetchrow(
+        "SELECT value FROM meta_processing_state WHERE key=$1",
+        _MOTIVATION_KEY,
+    )
+    if not row:
+        return {"enabled": False, "send_time": "08:00", "last_sent_date": None}
+    try:
+        return json.loads(row["value"])
+    except Exception:
+        return {"enabled": False, "send_time": "08:00", "last_sent_date": None}
+
+
+async def save_motivation_settings(settings: dict) -> None:
+    val = json.dumps(settings)
+    await execute(
+        """
+        INSERT INTO meta_processing_state (key, value) VALUES ($1, $2)
+        ON CONFLICT (key) DO UPDATE SET value = $2
+        """,
+        _MOTIVATION_KEY, val,
+    )
 
 
 # ─── QUEUE ─────────────────────────────────────────────────────────────────
@@ -1034,30 +1081,6 @@ async def get_admin_challenge_detail(challenge_id: int) -> dict[str, Any]:
             "avg_week":  round(float(agg["avg_week"]),  1) if agg["avg_week"]  is not None else None,
             "max_ever":  int(agg["max_ever"])               if agg["max_ever"]  is not None else None,
         })
-
-        top_rows = await fetch(
-            """
-            SELECT
-                u.display_name,
-                COUNT(*)                              AS total_answers,
-                AVG((e.payload->>'value')::numeric)   AS avg_val
-            FROM events e
-            JOIN users u ON u.id = e.user_id
-            WHERE e.challenge_id = $1
-            GROUP BY u.id, u.display_name
-            ORDER BY total_answers DESC, avg_val DESC
-            LIMIT $2
-            """,
-            challenge_id, DB_TOP_USERS_LIMIT,
-        )
-        result["top_users"] = [
-            {
-                "name":          r["display_name"] or "—",
-                "total_answers": r["total_answers"],
-                "avg_val":       round(float(r["avg_val"]), 1) if r["avg_val"] else 0,
-            }
-            for r in top_rows
-        ]
 
     elif kind == "poll":
         poll_rows = await fetch(
