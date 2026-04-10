@@ -11,12 +11,28 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    # Порт 5432 НЕ пробрасываем наружу — только внутри Docker-сети
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U istiqama -d istiqama"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  tunnel:
+    build: ./tunnel
+    restart: unless-stopped
+    environment:
+      SSH_HOST: ${SSH_HOST}          # IP или домен зарубежной VPS
+      SSH_USER: ${SSH_USER:-root}
+      SSH_PORT: ${SSH_PORT:-22}
+    volumes:
+      # Путь к приватному ключу на хосте (без пароля)
+      - ${SSH_KEY_PATH:-~/.ssh/id_rsa}:/root/.ssh/id_rsa:ro
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 1080 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 15s
 
   bot:
     build: .
@@ -24,12 +40,16 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      tunnel:
+        condition: service_healthy
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       DATABASE_URL: postgresql://istiqama:istiqama@db:5432/istiqama
       ADMIN_IDS: ${ADMIN_IDS:-}
       SCHEDULER_INTERVAL: ${SCHEDULER_INTERVAL:-60}
       WEBAPP_URL: ${WEBAPP_URL:-}
+      # Прокси — имя сервиса в Docker-сети
+      PROXY_URL: socks5://tunnel:1080
     env_file:
       - .env
 
@@ -40,13 +60,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      tunnel:
+        condition: service_healthy
     environment:
       BOT_TOKEN: ${BOT_TOKEN}
       DATABASE_URL: postgresql://istiqama:istiqama@db:5432/istiqama
       WEBAPP_URL: ${WEBAPP_URL:-}
+      PROXY_URL: socks5://tunnel:1080
     env_file:
       - .env
-    # Порт 8000 НЕ пробрасываем — nginx обращается внутри Docker-сети
 
   nginx:
     image: nginx:alpine
