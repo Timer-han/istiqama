@@ -3,15 +3,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import sys
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import MenuButtonWebApp, MenuButtonDefault, WebAppInfo
-from aiohttp_socks import ProxyConnector
-from aiogram.client.session.aiohttp import AiohttpSession
 
 from adapters.storage_postgres import init_pool, close_pool
 from bot.config import config
@@ -30,6 +30,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def _make_session() -> AiohttpSession | None:
+    """Create AiohttpSession with SOCKS5 proxy if PROXY_URL is set."""
+    proxy_url = os.getenv("PROXY_URL", "").strip()
+    if not proxy_url:
+        return None
+    logger.info("Using proxy: %s", proxy_url)
+    return AiohttpSession(proxy=proxy_url)
+
+
 async def _setup_menu_button(bot: Bot) -> None:
     """Set (or clear) the chat menu button for the bot."""
     if config.webapp_url:
@@ -44,7 +53,6 @@ async def _setup_menu_button(bot: Bot) -> None:
         except Exception as exc:
             logger.warning("Could not set menu button: %s", exc)
     else:
-        # Reset to default hamburger if no URL configured
         try:
             await bot.set_chat_menu_button(menu_button=MenuButtonDefault())
         except Exception:
@@ -56,25 +64,21 @@ async def main() -> None:
     await init_pool(config.db_dsn, min_size=config.db_pool_min, max_size=config.db_pool_max)
     logger.info("Database connected.")
 
-    storage = MemoryStorage()
-    session = AiohttpSession(
-        proxy="socks5://127.0.0.1:1080"
-    )
+    session = _make_session()
 
+    storage = MemoryStorage()
     bot = Bot(
         token=config.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
-        session=session,
+        **({"session": session} if session else {}),
     )
     dp = Dispatcher(storage=storage)
 
     dp.update.middleware(UserMiddleware())
 
-    # Admin router first (has IsAdmin filter)
     dp.include_router(admin_router)
     dp.include_router(user_router)
 
-    # Set the WebApp menu button (shows as a button in the chat input area)
     await _setup_menu_button(bot)
 
     asyncio.create_task(scheduler_task(bot, storage=storage, interval=config.scheduler_interval))
