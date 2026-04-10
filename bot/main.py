@@ -10,6 +10,8 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import MenuButtonWebApp, MenuButtonDefault, WebAppInfo
+from aiohttp_socks import ProxyConnector
+from aiogram.client.session.aiohttp import AiohttpSession
 
 from adapters.storage_postgres import init_pool, close_pool
 from bot.config import config
@@ -55,9 +57,14 @@ async def main() -> None:
     logger.info("Database connected.")
 
     storage = MemoryStorage()
+    session = AiohttpSession(
+        proxy="socks5://127.0.0.1:1080"
+    )
+
     bot = Bot(
         token=config.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.MARKDOWN),
+        session=session,
     )
     dp = Dispatcher(storage=storage)
 
